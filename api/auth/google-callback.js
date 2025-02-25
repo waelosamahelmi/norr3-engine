@@ -24,13 +24,17 @@ let users = [
 ];
 
 module.exports = async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+
   const { code } = req.query;
   try {
     const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
       code,
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      redirect_uri: process.env.GOOGLE_REDIRECT_URI,
+      client_id: '510608755501-ucl194dpbraertmqp8188bb7muh1b5oh.apps.googleusercontent.com',
+      client_secret: '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',
+      redirect_uri: 'https://kiinteistomaailma.norr3.fi/api/auth/google-callback',
       grant_type: 'authorization_code'
     });
     const { access_token } = tokenResponse.data;
@@ -52,10 +56,10 @@ module.exports = async (req, res) => {
     }
     const token = jwt.sign(
       { email: user.email, role: 'partner', partnerName: 'Kiinteistömaailma Helsinki' },
-      process.env.JWT_SECRET,
+      'fda64fada1aa314e2167197ae36b9e2bfb12229ab8b6a604995d5b77a21df609',
       { expiresIn: '1h' }
     );
-    res.redirect(`${process.env.GOOGLE_REDIRECT_URI}?token=${token}&service=kiinteistomaailma`);
+    res.redirect(`https://kiinteistomaailma.norr3.fi/?token=${token}&service=kiinteistomaailma`);
   } catch (error) {
     res.status(500).json({ error: 'Google login failed: ' + error.message });
   }

@@ -23,16 +23,7 @@ const users = [
 ];
 
 module.exports = async (req, res) => {
-  const origin = req.headers.origin;
-  const allowedOrigins = [
-    'https://kiinteistomaailma.norr3.fi',
-    'https://norr3-ia42wsmob-norr3.vercel.app'
-  ];
-  if (allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', 'https://kiinteistomaailma.norr3.fi'); // Fallback to main domain
-  }
+  res.setHeader('Access-Control-Allow-Origin', '*'); // Allow all for speed
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
 
@@ -43,7 +34,7 @@ module.exports = async (req, res) => {
   }
   const token = jwt.sign(
     { email: user.email, role: user.role, partnerName: user.partnerName, agentName: user.agentName, agentKey: user.agentKey },
-    process.env.JWT_SECRET,
+    'fda64fada1aa314e2167197ae36b9e2bfb12229ab8b6a604995d5b77a21df609', // Hardcoded JWT_SECRET
     { expiresIn: '1h' }
   );
   res.json({ token, role: user.role, partnerName: user.partnerName, email: user.email, agentName: user.agentName, agentKey: user.agentKey });

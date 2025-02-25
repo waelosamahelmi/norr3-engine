@@ -1,11 +1,13 @@
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
 
+let campaigns = [];
+
 async function refreshGoogleToken() {
   const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
-    client_id: process.env.GOOGLE_CLIENT_ID,
-    client_secret: process.env.GOOGLE_CLIENT_SECRET,
-    refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+    client_id: '510608755501-ucl194dpbraertmqp8188bb7muh1b5oh.apps.googleusercontent.com',
+    client_secret: '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',
+    refresh_token: '1//04hKsI6kHczRqCgYIARAAGAQSNwF-L9IrDHN4iJWBcImylm9fFCx8IXWHgQMln-HkTTCL_k7XbzI578mhEAXlqMIFA3HV8i0Ghao',
     grant_type: 'refresh_token'
   });
   return tokenResponse.data.access_token;
@@ -14,7 +16,7 @@ async function refreshGoogleToken() {
 async function loadCampaignsFromSheet(agentKey) {
   const accessToken = await refreshGoogleToken();
   const sheetResp = await axios.get(
-    `https://sheets.googleapis.com/v4/spreadsheets/${process.env.GOOGLE_SHEET_ID}/values/LIVE`,
+    `https://sheets.googleapis.com/v4/spreadsheets/1ncxlcx8f8BfhHeT9ph1sb0HqencDOnkwCMeoYg9e3tk/values/LIVE`,
     { headers: { 'Authorization': `Bearer ${accessToken}` } }
   );
   const values = sheetResp.data.values || [];
@@ -104,17 +106,21 @@ async function syncToSheets(campaignsArray) {
     ]);
   });
   await axios.post(
-    `https://sheets.googleapis.com/v4/spreadsheets/${process.env.GOOGLE_SHEET_ID}/values/LIVE:append?valueInputOption=RAW`,
+    `https://sheets.googleapis.com/v4/spreadsheets/1ncxlcx8f8BfhHeT9ph1sb0HqencDOnkwCMeoYg9e3tk/values/LIVE:append?valueInputOption=RAW`,
     { values: rows },
     { headers: { 'Authorization': `Bearer ${accessToken}` } }
   );
 }
 
 module.exports = async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+
   const token = req.headers.authorization?.split(' ')[1];
   try {
     if (!token) return res.status(401).json({ error: 'No token provided' });
-    jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
+    jwt.verify(token, 'fda64fada1aa314e2167197ae36b9e2bfb12229ab8b6a604995d5b77a21df609', async (err, decoded) => {
       if (err) return res.status(401).json({ error: 'Invalid token' });
       if (req.method === 'GET') {
         const agentKey = decoded.role === 'partner' ? decoded.agentKey : null;
@@ -128,11 +134,12 @@ module.exports = async (req, res) => {
           agent_name: decoded.agentName,
           agent_key: decoded.agentKey
         };
-        await syncToSheets([newCampaign]);
+        campaigns.push(newCampaign);
+        await syncToSheets([newCampaign]); // Keep Sheets sync
         res.json(newCampaign);
       } else if (req.method === 'PUT') {
         const campaign = req.body;
-        await syncToSheets([campaign]);
+        await syncToSheets([campaign]); // Keep Sheets sync
         res.json(campaign);
       } else {
         res.status(405).json({ error: 'Method not allowed' });

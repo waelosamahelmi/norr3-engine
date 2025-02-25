@@ -23,10 +23,14 @@ let users = [
 ];
 
 module.exports = async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+
   const token = req.headers.authorization?.split(' ')[1];
   try {
     if (!token) return res.status(401).json({ error: 'No token provided' });
-    jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
+    jwt.verify(token, 'fda64fada1aa314e2167197ae36b9e2bfb12229ab8b6a604995d5b77a21df609', async (err, decoded) => {
       if (err || decoded.role !== 'admin') return res.status(401).json({ error: 'Admin access required' });
       if (req.method === 'GET') {
         res.json(users);
