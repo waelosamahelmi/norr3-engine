@@ -1,14 +1,12 @@
 {
     "version": 2,
     "builds": [
-      {
-        "src": "server.js",
-        "use": "@vercel/node"
-      }
+        {
+            "src": "server.js",
+            "use": "@vercel/node"
+        }
     ],
-    "env": {
-      "JWT_SECRET": "fda64fada1aa314e2167197ae36b9e2bfb12229ab8b6a604995d5b77a21df609",
-      "GOOGLE_CLIENT_ID": "510608755501-ucl194dpbraertmqp8188bb7muh1b5oh.apps.googleusercontent.com"
-    }
-  }
-  
+    "routes": [
+        { "src": "/api/(.*)", "dest": "/server.js" }
+    ]
+}
