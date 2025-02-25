@@ -46,6 +46,14 @@
             <button id="norr3-create-campaign-btn" onclick="norr3CreateCampaign()" class="norr3-btn-primary" type="button" aria-label="Create New Campaign">
               <i class="fas fa-plus"></i> <span data-translate="createCampaign">Create Campaign</span>
             </button>
+            <button id="norr3-fetch-campaigns-btn"
+        onclick="norr3RenderCampaigns()"
+        class="norr3-btn-primary"
+        type="button"
+        aria-label="Fetch Campaigns">
+  <i class="fas fa-sync-alt"></i> <span>Fetch</span>
+</button>
+
             <span id="norr3-loading-spinner" class="norr3-loading-spinner" style="display: none;" aria-live="polite"><i class="fas fa-spinner fa-spin"></i></span>
           </div>
           <div class="norr3-right-controls">
@@ -117,36 +125,6 @@
           <div class="norr3-modal-actions">
             <button onclick="norr3SaveCampaign()" class="norr3-btn-primary" data-translate="saveCampaign" aria-label="Save Campaign">Save Campaign</button>
             <button onclick="norr3CloseCreateModal(event)" class="norr3-btn-primary" data-translate="cancel" aria-label="Cancel">Cancel</button>
-          </div>
-        </div>
-        <div class="norr3-modal-left">
-          <h4 class="norr3-h4" data-translate="apartments">Apartments</h4>
-          <button onclick="norr3AddApartment()" class="norr3-btn-primary" type="button" aria-label="Add Apartment">Add Apartments</button>
-          <div id="norr3-selected-apartments" class="norr3-apartment-list" role="list" aria-label="Selected Apartments"></div>
-        </div>
-      </div>
-    </div>
-    <div id="norr3-edit-modal" class="norr3-modal" style="display: none;" role="dialog" aria-label="Edit Campaign">
-      <div class="norr3-modal-content norr3-slide-in norr3-two-columns">
-        <div class="norr3-modal-left">
-          <button class="norr3-close-btn" onclick="norr3CloseModal(event)" aria-label="Close modal">×</button>
-          <h3 class="norr3-h3" data-translate="editCampaign">Edit Campaign</h3>
-          <div class="norr3-modal-section">
-            <h4 class="norr3-h4" data-translate="dates">Dates</h4>
-            <label>Start Date: <input type="date" id="norr3-modal-start-date" class="norr3-input-modern" aria-label="Start date" required /></label>
-            <label>End Date: <input type="date" id="norr3-modal-end-date" class="norr3-input-modern" aria-label="End date" /></label>
-            <p>
-              <span data-translate="ongoing">Ongoing</span>:
-              <label class="norr3-toggle-slider">
-                <input type="checkbox" id="norr3-modal-ongoing" onchange="norr3ToggleEndDate()" aria-label="Ongoing campaign" />
-                <span class="norr3-slider" role="switch" aria-checked="false"></span>
-              </label>
-            </p>
-          </div>
-          <div class="norr3-modal-actions">
-            <button onclick="norr3SaveCampaign()" class="norr3-btn-primary" data-translate="saveCampaign" aria-label="Save Campaign">Save Campaign</button>
-            <button onclick="norr3CloseModal(event)" class="norr3-btn-primary" data-translate="cancel" aria-label="Cancel">Cancel</button>
-            <button onclick="norr3ConfirmEdits()" class="norr3-btn-primary" data-translate="confirmEdits" aria-label="Confirm Edits">Confirm Edits</button>
           </div>
         </div>
         <div class="norr3-modal-left">

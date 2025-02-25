@@ -15,7 +15,7 @@ const translations = {
     active: "Active",
     paused: "Paused",
     exportCampaigns: "Export",
-    createCampaign: "Create Campaign",
+    createCampaign: "Create",
     editCampaign: "Edit Campaign",
     campaignId: "Campaign ID",
     agent: "Agent",
@@ -53,115 +53,7 @@ const translations = {
     noCampaigns: "No campaigns found.",
     successfullyAdded: "Successfully added apartment.",
     noApartments: "No apartments found for your agency email."
-  },
-  fi: {
-    marketingEngine: "NØRR3",
-    loginWithGoogle: "Kirjaudu sisään Googlella",
-    login: "Kirjaudu sisään",
-    emailPlaceholder: "esim. seppo.kairikko@kiinteistomaailma.fi",
-    passwordPlaceholder: "Salasana",
-    searchCampaigns: "Hae kampanjoita...",
-    selectService: "Valitse palvelusi",
-    campaignManagement: "Kampanjoiden hallinta",
-    userManagement: "Käyttäjien hallinta",
-    back: "Takaisin",
-    allStatuses: "Kaikki tilat",
-    active: "Aktiivinen",
-    paused: "Tauolla",
-    exportCampaigns: "Vie",
-    createCampaign: "Luo kampanja",
-    editCampaign: "Muokkaa kampanjaa",
-    campaignId: "Kampanjan ID",
-    agent: "Agentti",
-    includedApartments: "Sisältyvät asunnon avaimet",
-    start: "Alku",
-    end: "Loppu",
-    channels: "Kanavat",
-    budget: "Budjetti",
-    status: "Tila",
-    actions: "Toiminnot",
-    activeCampaigns: "Aktiiviset kampanjat:",
-    pausedCampaigns: "Tauolla olevat kampanjat:",
-    totalBudgetLabel: "Kokonaisbudjetti:",
-    lastUpdated: "Viimeksi päivitetty:",
-    notifications: "Ilmoitukset",
-    agentInformation: "Agentin tiedot",
-    apartmentInformation: "Asunnon tiedot",
-    apartments: "Asunnot",
-    dates: "Päivämäärät",
-    ongoing: "Käynnissä",
-    budgetAllocation: "Budjetin kohdentaminen",
-    totalBudget: "Kokonaisbudjetti",
-    saveCampaign: "Tallenna kampanja",
-    cancel: "Peruuta",
-    confirmEdits: "Vahvista muutokset",
-    selectApartments: "Valitse asunnot",
-    apartmentDetails: "Asunnon tiedot",
-    campaignDetails: "Kampanjan tiedot",
-    add: "Lisää",
-    moreInfo: "Lisätietoja",
-    invalidCredentials: "Väärä sähköposti tai salasana, yritä uudelleen.",
-    noNewNotifications: "Ei uusia ilmoituksia.",
-    campaignSaved: "Kampanja tallennettu!",
-    pleaseLogin: "Kirjaudu sisään nähdäksesi kampanjat.",
-    noCampaigns: "Kampanjoita ei löytynyt.",
-    successfullyAdded: "Asunto lisätty onnistuneesti.",
-    noApartments: "Asuntoja ei löytynyt sähköpostiosoitteellesi."
-},
-sv: {
-  marketingEngine: "NØRR3",
-  loginWithGoogle: "Logga in med Google",
-  login: "Logga in",
-  emailPlaceholder: "t.ex. seppo.kairikko@kiinteistomaailma.fi",
-  passwordPlaceholder: "Lösenord",
-  searchCampaigns: "Sök kampanjer...",
-  selectService: "Välj din tjänst",
-  campaignManagement: "Kampanjhantering",
-  userManagement: "Användarhantering",
-  back: "Tillbaka",
-  allStatuses: "Alla statusar",
-  active: "Aktiv",
-  paused: "Pausad",
-  exportCampaigns: "Exportera",
-  createCampaign: "Skapa kampanj",
-  editCampaign: "Redigera kampanj",
-  campaignId: "Kampanj-ID",
-  agent: "Agent",
-  includedApartments: "Inkluderade lägenhetsnycklar",
-  start: "Start",
-  end: "Slut",
-  channels: "Kanaler",
-  budget: "Budget",
-  status: "Status",
-  actions: "Åtgärder",
-  activeCampaigns: "Aktiva kampanjer:",
-  pausedCampaigns: "Pausade kampanjer:",
-  totalBudgetLabel: "Total budget:",
-  lastUpdated: "Senast uppdaterad:",
-  notifications: "Notiser",
-  agentInformation: "Agentinformation",
-  apartmentInformation: "Lägenhetsinformation",
-  apartments: "Lägenheter",
-  dates: "Datum",
-  ongoing: "Pågående",
-  budgetAllocation: "Budgetfördelning",
-  totalBudget: "Total budget",
-  saveCampaign: "Spara kampanj",
-  cancel: "Avbryt",
-  confirmEdits: "Bekräfta ändringar",
-  selectApartments: "Välj lägenheter",
-  apartmentDetails: "Lägenhetsdetaljer",
-  campaignDetails: "Kampanjdetaljer",
-  add: "Lägg till",
-  moreInfo: "Mer info",
-  invalidCredentials: "Fel e-post eller lösenord, försök igen.",
-  noNewNotifications: "Inga nya notiser.",
-  campaignSaved: "Kampanj sparad!",
-  pleaseLogin: "Var god logga in för att se kampanjer.",
-  noCampaigns: "Inga kampanjer hittades.",
-  successfullyAdded: "Lägenhet tillagd framgångsrikt.",
-  noApartments: "Inga lägenheter hittades för din agentur-e-post."
-}
+  }
 };
 
 let selectedApartments = [];
@@ -171,6 +63,28 @@ function getThumbnailUrl(apt) {
   const mainImg = (apt.images || []).find(i => i.type === 'MAIN');
   return mainImg && mainImg.url ? mainImg.url : 'https://via.placeholder.com/50';
 }
+
+let users = [
+  {
+    email: "seppo.kairikko@kiinteistomaailma.fi",
+    password: bcrypt.hashSync("password123", 10),
+    role: "partner",
+    partnerName: "Kiinteistömaailma Helsinki",
+    agentName: "Seppo Kairikko",
+    agentKey: "1160ska",
+    agentImage: ""
+  },
+  {
+    email: "admin@norr3.fi",
+    password: bcrypt.hashSync("Admin123", 10),
+    role: "admin",
+    partnerName: "NØRR3",
+    agentName: "",
+    agentKey: "",
+    agentImage: ""
+  }
+];
+
 
 function setLanguage(lang) {
   currentLanguage = lang;
@@ -254,9 +168,7 @@ async function norr3ManualLogin() {
       localStorage.setItem('role', data.role);
       localStorage.setItem('partnerName', data.partnerName);
       localStorage.setItem('email', data.email);
-      localStorage.setItem('agentEmail', data.email.toLowerCase().trim());
-      localStorage.setItem('agentName', data.agentName);
-      localStorage.setItem('agentKey', data.agentKey);
+      localStorage.setItem('agentEmail', data.agentKey);
       document.getElementById('norr3-container').style.display = 'block';
       hideAlert();
       if (data.role === 'admin') {
@@ -305,12 +217,13 @@ async function norr3RenderCampaigns() {
     const searchVal = document.getElementById('norr3-search-campaigns').value.toLowerCase();
     const statusVal = document.getElementById('norr3-filter-status').value;
     const role = localStorage.getItem('role');
-    const agentEmail = localStorage.getItem('agentEmail') || '';
+    const agentKey = localStorage.getItem('agentEmail') || '';
+
     const res = await fetch('/api/campaigns', { headers: { 'Authorization': `Bearer ${token}` } });
     if (!res.ok) throw new Error(await res.text());
     let camps = await res.json();
     if (role === 'partner') {
-      camps = camps.filter(c => (c.agent_key || '').toLowerCase() === agentEmail.toLowerCase());
+      camps = camps.filter(c => (c.agent_key || '').toLowerCase() === agentKey.toLowerCase());
     }
     const filtered = camps.filter(c => {
       const matchesSearch = c.id.toString().includes(searchVal) ||
@@ -450,47 +363,6 @@ function norr3CloseCreateModal(event) {
   selectedApartments = [];
 }
 
-async function norr3EditCampaign(id) {
-  const token = localStorage.getItem('token');
-  showLoadingScreen(true);
-  try {
-    const [campRes, aptRes] = await Promise.all([
-      fetch(`/api/campaigns/${id}`, { headers: { 'Authorization': `Bearer ${token}` } }),
-      fetch('/api/apartments', { headers: { 'Authorization': `Bearer ${token}` } })
-    ]);
-    if (!campRes.ok || !aptRes.ok) throw new Error('Failed to load campaign or apartments');
-    const campaign = await campRes.json();
-    const apartments = await aptRes.json();
-    const storedEmail = (localStorage.getItem('agentEmail') || '').toLowerCase().trim();
-    allApartments = apartments.filter(a =>
-      (a.agent.email || a.agencyEmail || '').toLowerCase().trim() === storedEmail
-    );
-    document.getElementById('norr3-edit-modal').style.display = 'flex';
-    document.getElementById('norr3-edit-modal').setAttribute('data-campaign-id', campaign.id);
-    document.getElementById('norr3-modal-start-date').value = (campaign.start_date || '').split('T')[0];
-    if (campaign.end_date) {
-      document.getElementById('norr3-modal-end-date').value = campaign.end_date.split('T')[0];
-      document.getElementById('norr3-modal-ongoing').checked = false;
-      document.getElementById('norr3-modal-end-date').disabled = false;
-    } else {
-      document.getElementById('norr3-modal-end-date').value = '';
-      document.getElementById('norr3-modal-ongoing').checked = true;
-      document.getElementById('norr3-modal-end-date').disabled = true;
-    }
-    selectedApartments = (campaign.apartments || []).map(a => ({
-      key: a.key,
-      radius: a.radius || 1500,
-      channels: a.channels || [],
-      budget: a.budget || { meta: 0, display: 0, pdooh: 0 }
-    }));
-    updateSelectedApartments();
-  } catch (err) {
-    showAlert('Failed to load campaign for editing: ' + err.message);
-  } finally {
-    showLoadingScreen(false);
-  }
-}
-
 function norr3CloseModal(event) {
   document.getElementById('norr3-edit-modal').style.display = 'none';
 }
@@ -530,11 +402,13 @@ async function norr3SaveCampaign() {
   const ongoing = isCreate
     ? document.getElementById('norr3-create-ongoing').checked
     : document.getElementById('norr3-modal-ongoing').checked;
+
   if (!startDate || (!ongoing && !endDate) || selectedApartments.length === 0) {
     showAlert('Please provide Start Date, End Date (or mark as Ongoing), and select at least one apartment.');
     showLoadingScreen(false);
     return;
   }
+
   let campAddress = 'Unknown Address', campPost = 'Unknown', campCity = 'Unknown';
   const firstApt = allApartments.find(a => a.key === selectedApartments[0].key);
   if (firstApt) {
@@ -542,6 +416,7 @@ async function norr3SaveCampaign() {
     campPost = firstApt.postcode || campPost;
     campCity = firstApt.city || campCity;
   }
+
   const combinedChannels = new Set();
   const combinedBudget = { meta: 0, display: 0, pdooh: 0 };
   selectedApartments.forEach(a => {
@@ -550,12 +425,13 @@ async function norr3SaveCampaign() {
     combinedBudget.display += (a.budget.display || 0);
     combinedBudget.pdooh += (a.budget.pdooh || 0);
   });
+
   const campaignData = {
     id: campaignId || Date.now().toString(),
     partner_id: 1,
     partnerName: localStorage.getItem('partnerName') || 'Kiinteistömaailma Helsinki',
     agent_name: localStorage.getItem('agentName') || 'Unknown Agent',
-    agent_key: localStorage.getItem('agentKey') || 'Unknown',
+    agent_key: localStorage.getItem('agentEmail') || 'Unknown',
     apartments: selectedApartments,
     address: campAddress,
     postal_code: campPost,
@@ -567,6 +443,7 @@ async function norr3SaveCampaign() {
     budget: combinedBudget,
     status: true
   };
+  
   try {
     const method = campaignId ? 'PUT' : 'POST';
     const res = await fetch('/api/campaigns', {
@@ -579,7 +456,48 @@ async function norr3SaveCampaign() {
     });
     if (!res.ok) throw new Error(await res.text());
     const savedCampaign = await res.json();
-    // Removed duplicate call to sync to sheet
+    const days = campaignData.end_date
+      ? Math.max(1, (new Date(campaignData.end_date) - new Date(campaignData.start_date)) / (1000 * 60 * 60 * 24))
+      : 30;
+    const rows = [];
+    selectedApartments.forEach(apt => {
+      const aptFull = allApartments.find(a => String(a.key) === String(apt.key));
+      if (aptFull) {
+        rows.push([
+          savedCampaign.id,
+          campaignData.partner_id,
+          campaignData.partnerName,
+          campaignData.agent_name,
+          campaignData.agent_key,
+          aptFull.key,
+          `https://www.kiinteistomaailma.fi/${aptFull.key}`,
+          campaignData.address,
+          campaignData.postal_code,
+          campaignData.city,
+          apt.radius,
+          campaignData.channels.includes('meta') ? 1 : 0,
+          campaignData.channels.includes('display') ? 1 : 0,
+          campaignData.channels.includes('pdooh') ? 1 : 0,
+          (campaignData.budget.meta || 0).toString(),
+          ((parseFloat(campaignData.budget.meta || 0) / days) || 0).toFixed(2),
+          (campaignData.budget.display || 0).toString(),
+          ((parseFloat(campaignData.budget.display || 0) / days) || 0).toFixed(2),
+          (campaignData.budget.pdooh || 0).toString(),
+          ((parseFloat(campaignData.budget.pdooh || 0) / days) || 0).toFixed(2),
+          campaignData.start_date,
+          campaignData.end_date || '',
+          campaignData.status ? '1' : '0'
+        ]);
+      }
+    });
+    await fetch('/api/sheets/update', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ campaignId: savedCampaign.id, rows: rows })
+    });
     if (isCreate) {
       document.getElementById('norr3-create-modal').style.display = 'none';
     } else {
@@ -612,9 +530,9 @@ async function norr3AddApartment() {
     const res = await fetch('/api/apartments', { headers: { 'Authorization': `Bearer ${token}` } });
     if (!res.ok) throw new Error(`Failed to load apartments (Status: ${res.status})`);
     const apartments = await res.json();
-    const storedEmail = (localStorage.getItem('agentEmail') || '').toLowerCase().trim();
+    const storedKey = localStorage.getItem('agentEmail') || '';
     const filteredApartments = apartments.filter(a =>
-      (a.agent.email || a.agencyEmail || '').toLowerCase().trim() === storedEmail
+      (a.agentEmail || a.agencyEmail || '').toLowerCase().trim() === storedKey.toLowerCase()
     );
     if (!filteredApartments.length) {
       showAlert(translations[currentLanguage].noApartments);
@@ -764,7 +682,7 @@ async function norr3ShowApartmentInfo(key) {
       </div>
       <p><strong>Key:</strong> ${apt.key || 'Unknown'}</p>
       <p><strong>Link:</strong> <a href="https://www.kiinteistomaailma.fi/${apt.key}" target="_blank">View</a></p>
-      <p><strong>Agent Email:</strong> ${apt.agent.email || apt.agencyEmail || 'Unknown'}</p>
+      <p><strong>Agent Email:</strong> ${apt.agentEmail || apt.agencyEmail || 'Unknown'}</p>
     `;
   } catch (err) {
     showAlert('Failed to load apartment details: ' + err.message);
@@ -897,6 +815,7 @@ function norr3UpdateMetrics() {
     .catch(err => console.error('Error updating metrics:', err))
     .finally(() => showLoadingScreen(false));
 }
+
 
 async function norr3AddUser() {
   const token = localStorage.getItem('token');
@@ -1076,11 +995,9 @@ window.onload = function() {
     localStorage.setItem('norr3LoggedIn', 'true');
     localStorage.setItem('role', service === 'norr3' ? 'admin' : 'partner');
     localStorage.setItem('partnerName', service === 'norr3' ? 'NØRR3' : 'Kiinteistömaailma Helsinki');
-    localStorage.setItem('email', 'niko.isola@kiinteistomaailma.fi');
-    localStorage.setItem('agentEmail', 'niko.isola@kiinteistomaailma.fi');
-    // For testing, also set agentName and agentKey
+    localStorage.setItem('email', 'seppo.kairikko@kiinteistomaailma.fi');
+    localStorage.setItem('agentEmail', '1160ska');
     localStorage.setItem('agentName', 'Seppo Kairikko');
-    localStorage.setItem('agentKey', '1160ska');
     document.getElementById('norr3-container').style.display = 'block';
     if (localStorage.getItem('role') === 'admin') {
       showSection('norr3-service-selection');

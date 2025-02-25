@@ -54,7 +54,9 @@ async function refreshGoogleToken() {
 async function syncToSheets(campaignsArray) {
   const accessToken = await refreshGoogleToken();
   const campaign = campaignsArray[0];
-  const days = campaign.end_date ? Math.max(1, (new Date(campaign.end_date) - new Date(campaign.start_date)) / (1000 * 60 * 60 * 24)) : 30;
+  const days = campaign.end_date
+    ? Math.max(1, (new Date(campaign.end_date) - new Date(campaign.start_date)) / (1000 * 60 * 60 * 24))
+    : 30;
   const rows = [];
   campaign.apartments.forEach(apt => {
     rows.push([
@@ -80,7 +82,7 @@ async function syncToSheets(campaignsArray) {
       ((parseFloat(campaign.budget.pdooh || 0) / days) || 0).toFixed(2),
       campaign.start_date,
       campaign.end_date || '',
-      campaign.status ? 'yes' : 'no'
+      campaign.status ? '1' : '0'
     ]);
   });
   await axios.post(
@@ -90,7 +92,7 @@ async function syncToSheets(campaignsArray) {
   );
 }
 
-async function loadCampaignsFromSheet(agentEmail) {
+async function loadCampaignsFromSheet(agentKey) {
   const accessToken = await refreshGoogleToken();
   const sheetResp = await axios.get(
     `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_ID}/values/LIVE`,
@@ -100,13 +102,12 @@ async function loadCampaignsFromSheet(agentEmail) {
   const loadedCampaigns = [];
   for (let i = 1; i < values.length; i++) {
     const row = values[i];
-    const campaign_id = row[0];
-    const agent_key = row[4];
-    if (!agentEmail || agent_key.toLowerCase() === agentEmail.toLowerCase()) {
-      let existingCamp = loadedCampaigns.find(c => c.id === campaign_id);
+    const rowAgentKey = row[4];
+    if (!agentKey || rowAgentKey.toLowerCase() === agentKey.toLowerCase()) {
+      let existingCamp = loadedCampaigns.find(c => c.id === row[0]);
       if (!existingCamp) {
         existingCamp = {
-          id: campaign_id,
+          id: row[0],
           partner_id: row[1],
           partnerName: row[2],
           agent_name: row[3],
@@ -120,7 +121,7 @@ async function loadCampaignsFromSheet(agentEmail) {
           end_date: row[21] || '',
           channels: [],
           budget: { meta: 0, display: 0, pdooh: 0 },
-          status: (row[22] === 'yes')
+          status: (row[22] === '1')
         };
         loadedCampaigns.push(existingCamp);
       }
@@ -149,7 +150,6 @@ async function loadCampaignsFromSheet(agentEmail) {
   return loadedCampaigns;
 }
 
-// API: Apartments
 app.get('/api/apartments', async (req, res) => {
   try {
     if (!apartmentsCache.length) {
@@ -165,12 +165,8 @@ app.get('/api/apartments', async (req, res) => {
       postcode: apt.postcode || 'Unknown',
       city: apt.city || 'Unknown',
       images: apt.images || [],
-      agent: apt.agent && apt.agent.email
-        ? { name: apt.agent.name || 'Unknown Agent', key: apt.agent.key || 'Unknown', email: apt.agent.email.toLowerCase().trim() }
-        : { name: 'Unknown Agent', key: 'Unknown', email: (apt.agencyEmail || '').toLowerCase().trim() }
+      agentEmail: apt.agent && apt.agent.email ? apt.agent.email.toLowerCase().trim() : ""
     }));
-        // Here, if you want to filter by the stored agent email (for example, if you store it in localStorage on the client side),
-    // you can compare the mapped.agent.email with that value.
     res.json(mapped);
   } catch (err) {
     console.error('Error in /api/apartments:', err);
@@ -184,11 +180,17 @@ app.get('/api/campaigns', async (req, res) => {
     if (!token) return res.status(401).json({ error: 'No token provided' });
     jwt.verify(token, JWT_SECRET, async (err, decoded) => {
       if (err) return res.status(401).json({ error: 'Invalid token' });
-      const agentEmail = decoded.role === 'partner' ? decoded.email : null;
-      const allCamps = await loadCampaignsFromSheet(agentEmail);
-      res.json(decoded.role === 'partner' ? allCamps : allCamps);
+      const agentKey = (decoded.role === 'partner') ? decoded.agentKey : null;
+      const all = await loadCampaignsFromSheet(agentKey);
+      if (decoded.role === 'partner') {
+        return res.json(all);
+      } else {
+        const allCamps = await loadCampaignsFromSheet(null);
+        res.json(allCamps);
+      }
     });
   } catch (error) {
+    console.error('Error in GET /api/campaigns:', error);
     res.status(500).json({ error: 'Failed to fetch campaigns: ' + error.message });
   }
 });
@@ -201,7 +203,7 @@ app.get('/api/campaigns/:id', (req, res) => {
       if (err) return res.status(401).json({ error: 'Invalid token' });
       const camp = campaigns.find(c => c.id === req.params.id);
       if (!camp) return res.status(404).json({ error: 'Campaign not found in memory' });
-      if (decoded.role === 'partner' && camp.agent_key.toLowerCase() !== decoded.email.toLowerCase()) {
+      if (decoded.role === 'partner' && camp.agent_key.toLowerCase() !== decoded.agentKey.toLowerCase()) {
         return res.status(403).json({ error: 'Unauthorized access' });
       }
       res.json(camp);
@@ -218,7 +220,12 @@ app.post('/api/campaigns', (req, res) => {
     jwt.verify(token, JWT_SECRET, async (err, decoded) => {
       if (err) return res.status(401).json({ error: 'Invalid token' });
       const randomId = String(Math.floor(1000 + Math.random() * 9000));
-      const newCampaign = { ...req.body, id: randomId, agent_key: decoded.email };
+      const newCampaign = {
+        ...req.body,
+        id: randomId,
+        agent_name: decoded.agentName,
+        agent_key: decoded.agentKey
+      };
       campaigns.push(newCampaign);
       await syncToSheets([newCampaign]);
       res.json(newCampaign);
@@ -236,7 +243,7 @@ app.put('/api/campaigns', async (req, res) => {
       if (err) return res.status(401).json({ error: 'Invalid token' });
       const idx = campaigns.findIndex(c => c.id === req.body.id);
       if (idx === -1) return res.status(404).json({ error: 'Campaign not found' });
-      if (decoded.role === 'partner' && campaigns[idx].agent_key.toLowerCase() !== decoded.email.toLowerCase()) {
+      if (decoded.role === 'partner' && campaigns[idx].agent_key.toLowerCase() !== decoded.agentKey.toLowerCase()) {
         return res.status(403).json({ error: 'Unauthorized access' });
       }
       campaigns[idx] = { ...campaigns[idx], ...req.body };
@@ -256,7 +263,7 @@ app.patch('/api/campaigns/status/:id', (req, res) => {
       if (err) return res.status(401).json({ error: 'Invalid token' });
       const camp = campaigns.find(c => c.id === req.params.id);
       if (!camp) return res.status(404).json({ error: 'Campaign not found' });
-      if (decoded.role === 'partner' && camp.agent_key.toLowerCase() !== decoded.email.toLowerCase()) {
+      if (decoded.role === 'partner' && camp.agent_key.toLowerCase() !== decoded.agentKey.toLowerCase()) {
         return res.status(403).json({ error: 'Unauthorized access' });
       }
       camp.status = req.body.status;
@@ -289,8 +296,25 @@ app.post('/api/auth/login', (req, res) => {
   if (!user || !bcrypt.compareSync(password, user.password)) {
     return res.status(401).json({ error: 'Wrong email or password, please try again.' });
   }
-  const token = jwt.sign({ email: user.email, role: user.role, partnerName: user.partnerName, agentName: user.agentName, agentKey: user.agentKey }, JWT_SECRET, { expiresIn: '1h' });
-  res.json({ token, role: user.role, partnerName: user.partnerName, email: user.email, agentName: user.agentName, agentKey: user.agentKey });
+  const token = jwt.sign(
+    { 
+      email: user.email, 
+      role: user.role, 
+      partnerName: user.partnerName, 
+      agentName: user.agentName, 
+      agentKey: user.agentKey 
+    },
+    JWT_SECRET,
+    { expiresIn: '1h' }
+  );
+  res.json({ 
+    token, 
+    role: user.role, 
+    partnerName: user.partnerName, 
+    email: user.email,
+    agentName: user.agentName,
+    agentKey: user.agentKey
+  });
 });
 
 app.get('/auth/google-login', (req, res) => {
@@ -308,7 +332,9 @@ app.get('/auth/google-callback', async (req, res) => {
       grant_type: 'authorization_code'
     });
     const { access_token } = tokenResponse.data;
-    const userResponse = await axios.get('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', { headers: { Authorization: `Bearer ${access_token}` } });
+    const userResponse = await axios.get('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
+      headers: { Authorization: `Bearer ${access_token}` }
+    });
     const user = userResponse.data;
     const existingUser = users.find(u => u.email === user.email);
     if (!existingUser) {
@@ -335,7 +361,11 @@ app.post('/api/users', (req, res) => {
     if (!token) return res.status(401).json({ error: 'No token provided' });
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
       if (err || decoded.role !== 'admin') return res.status(401).json({ error: 'Admin access required' });
-      const user = { ...req.body, password: bcrypt.hashSync(req.body.password, 10), role: 'partner' };
+      const user = {
+        ...req.body,
+        password: bcrypt.hashSync(req.body.password, 10),
+        role: 'partner'
+      };
       users.push(user);
       res.json(user);
     });

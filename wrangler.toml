@@ -1,0 +1,6 @@
+name = "norr3-engine"
+type = "webpack"
+account_id = "145331e51e816e26cb90830400f27442"
+workers_dev = false
+route = "https://kiinteistomaailma.norr3.fi/*"
+zone_id = "0a6da5b585bf76a2784d97877d43337a"
