@@ -58,7 +58,9 @@ const translations = {
 
 let selectedApartments = [];
 let allApartments = [];
+const BASE_URL = 'https://kiinteistomaailma.norr3.fi';
 
+// Utils
 function getThumbnailUrl(apt) {
   const mainImg = (apt.images || []).find(i => i.type === 'MAIN');
   return mainImg && mainImg.url ? mainImg.url : 'https://via.placeholder.com/50';
@@ -80,13 +82,6 @@ function setLanguage(lang) {
     filterSelect.options[2].text = translations[currentLanguage].paused;
   }
 }
-
-document.querySelectorAll('.norr3-language-switcher a').forEach(link => {
-  link.addEventListener('click', e => {
-    e.preventDefault();
-    setLanguage(link.getAttribute('data-lang'));
-  });
-});
 
 function showAlert(message) {
   const alertEl = document.getElementById('norr3-alert');
@@ -113,6 +108,7 @@ function showSection(sectionId) {
   }
 }
 
+// Navigation
 function norr3GoBack() {
   if (localStorage.getItem('role') === 'admin') {
     showSection('norr3-service-selection');
@@ -129,12 +125,13 @@ function norr3Logout() {
   showLoadingScreen(false);
 }
 
+// Authentication
 async function norr3ManualLogin() {
   const email = document.getElementById('norr3-email').value;
   const password = document.getElementById('norr3-password').value;
   showLoadingScreen(true);
   try {
-    const res = await fetch('/api/auth/login', {
+    const res = await fetch(`${BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
@@ -147,12 +144,17 @@ async function norr3ManualLogin() {
       localStorage.setItem('partnerName', data.partnerName);
       localStorage.setItem('email', data.email);
       localStorage.setItem('agentEmail', data.agentKey);
+      localStorage.setItem('agentName', data.agentName);
       document.getElementById('norr3-container').style.display = 'block';
       hideAlert();
       if (data.role === 'admin') {
         showSection('norr3-service-selection');
+        document.getElementById('norr3-user-management-btn').style.display = 'inline-block';
+        document.getElementById('norr3-back-button').style.display = 'inline-block';
       } else {
         showSection('norr3-campaign-setup');
+        document.getElementById('norr3-user-management-btn').style.display = 'none';
+        document.getElementById('norr3-back-button').style.display = 'none';
         await norr3RenderCampaigns();
         norr3UpdateMetrics();
         norr3CheckNotifications();
@@ -170,7 +172,7 @@ async function norr3ManualLogin() {
 
 async function norr3GoogleLogin() {
   showLoadingScreen(true);
-  window.location.href = '/auth/google-login';
+  window.location.href = `${BASE_URL}/api/auth/google-login`;
 }
 
 async function norr3SelectService(service) {
@@ -184,6 +186,7 @@ async function norr3SelectService(service) {
   showLoadingScreen(false);
 }
 
+// Campaigns
 async function norr3RenderCampaigns() {
   const token = localStorage.getItem('token');
   if (!token) {
@@ -197,7 +200,9 @@ async function norr3RenderCampaigns() {
     const role = localStorage.getItem('role');
     const agentKey = localStorage.getItem('agentEmail') || '';
 
-    const res = await fetch('/api/campaigns', { headers: { 'Authorization': `Bearer ${token}` } });
+    const res = await fetch(`${BASE_URL}/api/campaigns`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
     if (!res.ok) throw new Error(await res.text());
     let camps = await res.json();
     if (role === 'partner') {
@@ -205,8 +210,8 @@ async function norr3RenderCampaigns() {
     }
     const filtered = camps.filter(c => {
       const matchesSearch = c.id.toString().includes(searchVal) ||
-          (c.agent_name || '').toLowerCase().includes(searchVal) ||
-          (c.apartments || []).map(a => a.key).join(', ').toLowerCase().includes(searchVal);
+        (c.agent_name || '').toLowerCase().includes(searchVal) ||
+        (c.apartments || []).map(a => a.key).join(', ').toLowerCase().includes(searchVal);
       const matchesStatus = !statusVal || (c.status ? 'on' : 'off') === statusVal;
       return matchesSearch && matchesStatus;
     });
@@ -228,7 +233,7 @@ async function norr3RenderCampaigns() {
         <span role="cell">${(camp.apartments || []).map(a => a.key).join(', ') || 'None'}</span>
         <span role="cell">${formatDate(camp.start_date)}</span>
         <span role="cell">${camp.end_date ? formatDate(camp.end_date) : translations[currentLanguage].ongoing}</span>
-        <span role="cell">
+        <span role="cell" class="norr3-channel-icons">
           ${camp.channels.includes('meta') ? '<i class="fab fa-facebook" title="Meta"></i>' : ''}
           ${camp.channels.includes('display') ? '<i class="fas fa-desktop" title="Display"></i>' : ''}
           ${camp.channels.includes('pdooh') ? '<i class="fas fa-sign" title="PDOOH"></i>' : ''}
@@ -257,7 +262,7 @@ async function norr3ToggleStatus(id, checked) {
   const token = localStorage.getItem('token');
   showLoadingScreen(true);
   try {
-    const res = await fetch(`/api/campaigns/status/${id}`, {
+    const res = await fetch(`${BASE_URL}/api/campaigns/status?id=${id}`, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -283,7 +288,7 @@ function norr3ExportCampaigns() {
     return;
   }
   showLoadingScreen(true);
-  fetch('/api/campaigns', { headers: { 'Authorization': `Bearer ${token}` } })
+  fetch(`${BASE_URL}/api/campaigns`, { headers: { 'Authorization': `Bearer ${token}` } })
     .then(res => res.json())
     .then(camps => {
       const headers = [
@@ -299,14 +304,14 @@ function norr3ExportCampaigns() {
       ];
       const rows = camps.map(c => {
         const start = formatDate(c.start_date);
-        const end = c.end_date ? formatDate(c.end_date) : (translations[currentLanguage].ongoing || 'Ongoing');
+        const end = c.end_date ? formatDate(c.end_date) : translations[currentLanguage].ongoing;
         return [
           c.id,
           c.agent_name || 'Unknown Agent',
           (c.apartments || []).map(a => a.key).join(', '),
           start,
           end,
-          c.status ? (translations[currentLanguage].active || 'Active') : (translations[currentLanguage].paused || 'Paused'),
+          c.status ? translations[currentLanguage].active : translations[currentLanguage].paused,
           c.budget.meta || 0,
           c.budget.display || 0,
           c.budget.pdooh || 0
@@ -326,6 +331,7 @@ function norr3ExportCampaigns() {
     .finally(() => showLoadingScreen(false));
 }
 
+// Campaign Creation
 async function norr3CreateCampaign() {
   selectedApartments = [];
   document.getElementById('norr3-selected-apartments').innerHTML = '';
@@ -341,61 +347,9 @@ function norr3CloseCreateModal(event) {
   selectedApartments = [];
 }
 
-async function norr3EditCampaign(id) {
-  const token = localStorage.getItem('token');
-  showLoadingScreen(true);
-  try {
-    const [campRes, aptRes] = await Promise.all([
-      fetch(`/api/campaigns/${id}`, { headers: { 'Authorization': `Bearer ${token}` } }),
-      fetch('/api/apartments', { headers: { 'Authorization': `Bearer ${token}` } })
-    ]);
-    if (!campRes.ok || !aptRes.ok) throw new Error('Failed to load campaign or apartments');
-    const campaign = await campRes.json();
-    const apartments = await aptRes.json();
-    const storedKey = localStorage.getItem('agentEmail') || '';
-    allApartments = apartments.filter(a =>
-      (a.agentEmail || a.agencyEmail || '').toLowerCase().trim() === storedKey.toLowerCase()
-    );
-    document.getElementById('norr3-edit-modal').style.display = 'flex';
-    document.getElementById('norr3-edit-modal').setAttribute('data-campaign-id', campaign.id);
-    document.getElementById('norr3-modal-start-date').value = (campaign.start_date || '').split('T')[0];
-    if (campaign.end_date) {
-      document.getElementById('norr3-modal-end-date').value = campaign.end_date.split('T')[0];
-      document.getElementById('norr3-modal-ongoing').checked = false;
-      document.getElementById('norr3-modal-end-date').disabled = false;
-    } else {
-      document.getElementById('norr3-modal-end-date').value = '';
-      document.getElementById('norr3-modal-ongoing').checked = true;
-      document.getElementById('norr3-modal-end-date').disabled = true;
-    }
-    selectedApartments = (campaign.apartments || []).map(a => ({
-      key: a.key,
-      radius: a.radius || 1500,
-      channels: a.channels || [],
-      budget: a.budget || { meta: 0, display: 0, pdooh: 0 }
-    }));
-    updateSelectedApartments();
-  } catch (err) {
-    showAlert('Failed to load campaign for editing: ' + err.message);
-  } finally {
-    showLoadingScreen(false);
-  }
-}
-
-function norr3CloseModal(event) {
-  document.getElementById('norr3-edit-modal').style.display = 'none';
-}
-
 function norr3ToggleCreateEndDate() {
   const ongoing = document.getElementById('norr3-create-ongoing').checked;
   const endDate = document.getElementById('norr3-create-end-date');
-  endDate.disabled = ongoing;
-  if (ongoing) endDate.value = '';
-}
-
-function norr3ToggleEndDate() {
-  const ongoing = document.getElementById('norr3-modal-ongoing').checked;
-  const endDate = document.getElementById('norr3-modal-end-date');
   endDate.disabled = ongoing;
   if (ongoing) endDate.value = '';
 }
@@ -407,20 +361,9 @@ async function norr3SaveCampaign() {
     return;
   }
   showLoadingScreen(true);
-  const createModal = document.getElementById('norr3-create-modal');
-  const editModal = document.getElementById('norr3-edit-modal');
-  const isCreate = createModal.style.display === 'flex';
-  const modal = isCreate ? createModal : editModal;
-  const campaignId = modal.getAttribute('data-campaign-id') || '';
-  const startDate = isCreate
-    ? document.getElementById('norr3-create-start-date').value
-    : document.getElementById('norr3-modal-start-date').value;
-  const endDate = isCreate
-    ? document.getElementById('norr3-create-end-date').value
-    : document.getElementById('norr3-modal-end-date').value;
-  const ongoing = isCreate
-    ? document.getElementById('norr3-create-ongoing').checked
-    : document.getElementById('norr3-modal-ongoing').checked;
+  const startDate = document.getElementById('norr3-create-start-date').value;
+  const endDate = document.getElementById('norr3-create-end-date').value;
+  const ongoing = document.getElementById('norr3-create-ongoing').checked;
 
   if (!startDate || (!ongoing && !endDate) || selectedApartments.length === 0) {
     showAlert('Please provide Start Date, End Date (or mark as Ongoing), and select at least one apartment.');
@@ -446,7 +389,6 @@ async function norr3SaveCampaign() {
   });
 
   const campaignData = {
-    id: campaignId || Date.now().toString(),
     partner_id: 1,
     partnerName: localStorage.getItem('partnerName') || 'Kiinteistömaailma Helsinki',
     agent_name: localStorage.getItem('agentName') || 'Unknown Agent',
@@ -462,11 +404,10 @@ async function norr3SaveCampaign() {
     budget: combinedBudget,
     status: true
   };
-  
+
   try {
-    const method = campaignId ? 'PUT' : 'POST';
-    const res = await fetch('/api/campaigns', {
-      method: method,
+    const res = await fetch(`${BASE_URL}/api/campaigns`, {
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -475,53 +416,7 @@ async function norr3SaveCampaign() {
     });
     if (!res.ok) throw new Error(await res.text());
     const savedCampaign = await res.json();
-    const days = campaignData.end_date
-      ? Math.max(1, (new Date(campaignData.end_date) - new Date(campaignData.start_date)) / (1000 * 60 * 60 * 24))
-      : 30;
-    const rows = [];
-    selectedApartments.forEach(apt => {
-      const aptFull = allApartments.find(a => String(a.key) === String(apt.key));
-      if (aptFull) {
-        rows.push([
-          savedCampaign.id,
-          campaignData.partner_id,
-          campaignData.partnerName,
-          campaignData.agent_name,
-          campaignData.agent_key,
-          aptFull.key,
-          `https://www.kiinteistomaailma.fi/${aptFull.key}`,
-          campaignData.address,
-          campaignData.postal_code,
-          campaignData.city,
-          apt.radius,
-          campaignData.channels.includes('meta') ? 1 : 0,
-          campaignData.channels.includes('display') ? 1 : 0,
-          campaignData.channels.includes('pdooh') ? 1 : 0,
-          (campaignData.budget.meta || 0).toString(),
-          ((parseFloat(campaignData.budget.meta || 0) / days) || 0).toFixed(2),
-          (campaignData.budget.display || 0).toString(),
-          ((parseFloat(campaignData.budget.display || 0) / days) || 0).toFixed(2),
-          (campaignData.budget.pdooh || 0).toString(),
-          ((parseFloat(campaignData.budget.pdooh || 0) / days) || 0).toFixed(2),
-          campaignData.start_date,
-          campaignData.end_date || '',
-          campaignData.status ? '1' : '0'
-        ]);
-      }
-    });
-    await fetch('/api/sheets/update', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ campaignId: savedCampaign.id, rows: rows })
-    });
-    if (isCreate) {
-      document.getElementById('norr3-create-modal').style.display = 'none';
-    } else {
-      document.getElementById('norr3-edit-modal').style.display = 'none';
-    }
+    document.getElementById('norr3-create-modal').style.display = 'none';
     selectedApartments = [];
     await norr3RenderCampaigns();
     norr3UpdateMetrics();
@@ -534,10 +429,7 @@ async function norr3SaveCampaign() {
   }
 }
 
-function norr3ConfirmEdits() {
-  norr3SaveCampaign();
-}
-
+// Apartments
 async function norr3AddApartment() {
   const token = localStorage.getItem('token');
   if (!token) {
@@ -546,7 +438,9 @@ async function norr3AddApartment() {
   }
   showLoadingScreen(true);
   try {
-    const res = await fetch('/api/apartments', { headers: { 'Authorization': `Bearer ${token}` } });
+    const res = await fetch(`${BASE_URL}/api/apartments`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
     if (!res.ok) throw new Error(`Failed to load apartments (Status: ${res.status})`);
     const apartments = await res.json();
     const storedKey = localStorage.getItem('agentEmail') || '';
@@ -574,7 +468,7 @@ async function norr3AddApartment() {
       aptList.appendChild(row);
     });
   } catch (err) {
-    showAlert('Failed to load apartments for selection: ' + err.message);
+    showAlert('Failed to load apartments: ' + err.message);
   } finally {
     showLoadingScreen(false);
   }
@@ -588,7 +482,7 @@ function norr3SelectApartment(key) {
     if (checkbox) checkbox.checked = false;
     const budgetInput = document.getElementById(`norr3-apartment-budget-${ch}`);
     if (budgetInput) {
-      budgetInput.value = 0;
+      budgetInput.value = '0';
       budgetInput.disabled = true;
       budgetInput.style.opacity = '0.5';
     }
@@ -606,7 +500,7 @@ function norr3UpdateApartmentChannels() {
       } else {
         budgetInput.disabled = true;
         budgetInput.style.opacity = '0.5';
-        budgetInput.value = 0;
+        budgetInput.value = '0';
       }
     }
   });
@@ -684,8 +578,10 @@ async function norr3ShowApartmentInfo(key) {
   }
   showLoadingScreen(true);
   try {
-    const res = await fetch('/api/apartments', { headers: { 'Authorization': `Bearer ${token}` } });
-    if (!res.ok) throw new Error(`Failed to load apartments (Status: ${res.status})`);
+    const res = await fetch(`${BASE_URL}/api/apartments`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error(await res.text());
     const apartments = await res.json();
     const apt = apartments.find(a => String(a.key) === String(key));
     if (!apt) {
@@ -722,9 +618,16 @@ async function norr3ShowCampaignInfo(id) {
   }
   showLoadingScreen(true);
   try {
-    const res = await fetch(`/api/campaigns/${id}`, { headers: { 'Authorization': `Bearer ${token}` } });
-    if (!res.ok) throw new Error('Failed to load campaign details');
-    const camp = await res.json();
+    const res = await fetch(`${BASE_URL}/api/campaigns`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const camps = await res.json();
+    const camp = camps.find(c => c.id === id);
+    if (!camp) {
+      showAlert('Campaign not found.');
+      return;
+    }
     document.getElementById('norr3-campaign-info-modal').style.display = 'flex';
     const info = document.getElementById('norr3-campaign-info');
     info.innerHTML = `
@@ -751,11 +654,12 @@ function norr3CloseCampaignInfoModal(event) {
   document.getElementById('norr3-campaign-info-modal').style.display = 'none';
 }
 
+// Notifications and Metrics
 function norr3CheckNotifications() {
   const token = localStorage.getItem('token');
   if (!token) return;
   showLoadingScreen(true);
-  fetch('/api/campaigns', { headers: { 'Authorization': `Bearer ${token}` } })
+  fetch(`${BASE_URL}/api/campaigns`, { headers: { 'Authorization': `Bearer ${token}` } })
     .then(res => res.json())
     .then(camps => {
       const now = new Date();
@@ -783,7 +687,7 @@ function norr3ShowNotifications() {
     return;
   }
   showLoadingScreen(true);
-  fetch('/api/campaigns', { headers: { 'Authorization': `Bearer ${token}` } })
+  fetch(`${BASE_URL}/api/campaigns`, { headers: { 'Authorization': `Bearer ${token}` } })
     .then(res => res.json())
     .then(camps => {
       const notifs = [];
@@ -819,7 +723,7 @@ function norr3UpdateMetrics() {
   const token = localStorage.getItem('token');
   if (!token) return;
   showLoadingScreen(true);
-  fetch('/api/campaigns', { headers: { 'Authorization': `Bearer ${token}` } })
+  fetch(`${BASE_URL}/api/campaigns`, { headers: { 'Authorization': `Bearer ${token}` } })
     .then(res => res.json())
     .then(camps => {
       const activeCount = camps.filter(c => c.status).length;
@@ -835,6 +739,7 @@ function norr3UpdateMetrics() {
     .finally(() => showLoadingScreen(false));
 }
 
+// User Management
 async function norr3AddUser() {
   const token = localStorage.getItem('token');
   if (!token || localStorage.getItem('role') !== 'admin') {
@@ -854,7 +759,7 @@ async function norr3AddUser() {
       return;
     }
     const user = { email, password, partnerName, agentName, agentKey, agentImage };
-    const res = await fetch('/api/users', {
+    const res = await fetch(`${BASE_URL}/api/users`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(user)
@@ -882,7 +787,7 @@ async function norr3RemoveUser() {
       showAlert('Please enter an email to remove.');
       return;
     }
-    const res = await fetch(`/api/users/${encodeURIComponent(email)}`, {
+    const res = await fetch(`${BASE_URL}/api/users/${encodeURIComponent(email)}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -916,7 +821,7 @@ async function norr3EditUser() {
     }
     const user = { partnerName, agentName, agentKey, agentImage };
     if (password) user.password = password;
-    const res = await fetch(`/api/users/${encodeURIComponent(email)}`, {
+    const res = await fetch(`${BASE_URL}/api/users/${encodeURIComponent(email)}`, {
       method: 'PUT',
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(user)
@@ -936,8 +841,10 @@ async function norr3RenderUsers() {
   if (!token || localStorage.getItem('role') !== 'admin') return;
   showLoadingScreen(true);
   try {
-    const res = await fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } });
-    if (!res.ok) throw new Error('Failed to load users');
+    const res = await fetch(`${BASE_URL}/api/users`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error(await res.text());
     const users = await res.json();
     const list = document.getElementById('norr3-user-list');
     list.innerHTML = '';
@@ -950,7 +857,7 @@ async function norr3RenderUsers() {
         <span>${u.agentName || 'Unknown Agent'}</span>
         <span>${u.agentKey || 'Unknown Key'}</span>
         <img src="${u.agentImage || 'https://via.placeholder.com/50'}" alt="${u.agentName || 'Agent'}" loading="lazy">
-        <button onclick="norr3RemoveUser('${u.email}')" class="norr3-btn-primary">Remove</button>
+        <button class="norr3-btn-primary" onclick="norr3RemoveUser('${u.email}')">Remove</button>
       `;
       list.appendChild(row);
     });
@@ -961,25 +868,9 @@ async function norr3RenderUsers() {
   }
 }
 
-function norr3NotifyAdmins(message) {
-  const nots = JSON.parse(localStorage.getItem('notifications') || '[]');
-  nots.push(message);
-  localStorage.setItem('notifications', JSON.stringify(nots));
-  if (localStorage.getItem('role') === 'admin') {
-    norr3CheckNotifications();
-  }
-}
-
+// Helpers
 function norr3UserManagement() {
   showSection('norr3-user-management');
-}
-
-function jwtDecode(token) {
-  try {
-    return JSON.parse(atob(token.split('.')[1]));
-  } catch (e) {
-    return {};
-  }
 }
 
 function formatDate(date) {
@@ -988,12 +879,18 @@ function formatDate(date) {
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 }
 
+// Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.norr3-language-switcher a').forEach(link => {
+    link.addEventListener('click', e => {
+      e.preventDefault();
+      setLanguage(link.getAttribute('data-lang'));
+    });
+  });
   document.querySelectorAll('.norr3-modal').forEach(modal => {
     modal.addEventListener('click', e => {
       if (e.target === modal) {
         if (modal.id === 'norr3-create-modal') norr3CloseCreateModal(e);
-        else if (modal.id === 'norr3-edit-modal') norr3CloseModal(e);
         else if (modal.id === 'norr3-apartment-modal') norr3CloseApartmentModal(e);
         else if (modal.id === 'norr3-apartment-info-modal') norr3CloseApartmentInfoModal(e);
         else if (modal.id === 'norr3-campaign-info-modal') norr3CloseCampaignInfoModal(e);
