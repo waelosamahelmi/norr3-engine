@@ -69,39 +69,6 @@ async function loadCampaignsFromSheet(agentKey) {
   return loadedCampaigns;
 }
 
-module.exports = async (req, res) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  try {
-    if (!token) return res.status(401).json({ error: 'No token provided' });
-    jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
-      if (err) return res.status(401).json({ error: 'Invalid token' });
-      if (req.method === 'GET') {
-        const agentKey = decoded.role === 'partner' ? decoded.agentKey : null;
-        const campaigns = await loadCampaignsFromSheet(agentKey);
-        res.json(campaigns);
-      } else if (req.method === 'POST') {
-        const randomId = String(Math.floor(1000 + Math.random() * 9000));
-        const newCampaign = {
-          ...req.body,
-          id: randomId,
-          agent_name: decoded.agentName,
-          agent_key: decoded.agentKey
-        };
-        await syncToSheets([newCampaign]);
-        res.json(newCampaign);
-      } else if (req.method === 'PUT') {
-        const campaign = req.body;
-        await syncToSheets([campaign]);
-        res.json(campaign);
-      } else {
-        res.status(405).json({ error: 'Method not allowed' });
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to process campaigns: ' + error.message });
-  }
-};
-
 async function syncToSheets(campaignsArray) {
   const accessToken = await refreshGoogleToken();
   const campaign = campaignsArray[0];
@@ -142,3 +109,36 @@ async function syncToSheets(campaignsArray) {
     { headers: { 'Authorization': `Bearer ${accessToken}` } }
   );
 }
+
+module.exports = async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  try {
+    if (!token) return res.status(401).json({ error: 'No token provided' });
+    jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
+      if (err) return res.status(401).json({ error: 'Invalid token' });
+      if (req.method === 'GET') {
+        const agentKey = decoded.role === 'partner' ? decoded.agentKey : null;
+        const campaigns = await loadCampaignsFromSheet(agentKey);
+        res.json(campaigns);
+      } else if (req.method === 'POST') {
+        const randomId = String(Math.floor(1000 + Math.random() * 9000));
+        const newCampaign = {
+          ...req.body,
+          id: randomId,
+          agent_name: decoded.agentName,
+          agent_key: decoded.agentKey
+        };
+        await syncToSheets([newCampaign]);
+        res.json(newCampaign);
+      } else if (req.method === 'PUT') {
+        const campaign = req.body;
+        await syncToSheets([campaign]);
+        res.json(campaign);
+      } else {
+        res.status(405).json({ error: 'Method not allowed' });
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to process campaigns: ' + error.message });
+  }
+};

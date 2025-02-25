@@ -16,5 +16,3 @@ module.exports = async (req, res) => {
     res.status(500).json({ error: 'Failed to sync to Google Sheets: ' + error.message });
   }
 };
-
-// Reuse loadCampaignsFromSheet and syncToSheets

@@ -3,7 +3,24 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
 let users = [
-  // Same as above
+  {
+    email: 'seppo.kairikko@kiinteistomaailma.fi',
+    password: bcrypt.hashSync('password123', 10),
+    role: 'partner',
+    partnerName: 'Kiinteistömaailma Helsinki',
+    agentName: 'Seppo Kairikko',
+    agentKey: '1160ska',
+    agentImage: ''
+  },
+  {
+    email: 'admin@norr3.fi',
+    password: bcrypt.hashSync('Admin123', 10),
+    role: 'admin',
+    partnerName: 'NØRR3',
+    agentName: '',
+    agentKey: '',
+    agentImage: ''
+  }
 ];
 
 module.exports = async (req, res) => {
@@ -38,7 +55,7 @@ module.exports = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
-    res.redirect(`https://kiinteistomaailma.norr3.fi/?token=${token}&service=kiinteistomaailma`);
+    res.redirect(`${process.env.GOOGLE_REDIRECT_URI}?token=${token}&service=kiinteistomaailma`);
   } catch (error) {
     res.status(500).json({ error: 'Google login failed: ' + error.message });
   }

@@ -2,7 +2,24 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
 let users = [
-  // Same as above
+  {
+    email: 'seppo.kairikko@kiinteistomaailma.fi',
+    password: bcrypt.hashSync('password123', 10),
+    role: 'partner',
+    partnerName: 'Kiinteistömaailma Helsinki',
+    agentName: 'Seppo Kairikko',
+    agentKey: '1160ska',
+    agentImage: ''
+  },
+  {
+    email: 'admin@norr3.fi',
+    password: bcrypt.hashSync('Admin123', 10),
+    role: 'admin',
+    partnerName: 'NØRR3',
+    agentName: '',
+    agentKey: '',
+    agentImage: ''
+  }
 ];
 
 module.exports = async (req, res) => {
