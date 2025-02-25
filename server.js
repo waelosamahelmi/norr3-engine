@@ -4,19 +4,20 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-require('dotenv').config();
 
 const app = express();
-app.use(cors());
+app.use(cors()); // Allow all origins for speed (no security)
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
-const PORT = process.env.PORT || 5000;
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const GOOGLE_SHEET_ID = process.env.GOOGLE_SHEET_ID || 'your-google-sheet-id';
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'your-google-client-id';
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || 'your-google-client-secret';
-const GOOGLE_REFRESH_TOKEN = process.env.GOOGLE_REFRESH_TOKEN || 'your-google-refresh-token';
+// Hardcode environment variables (no .env needed for speed)
+const JWT_SECRET = 'fda64fada1aa314e2167197ae36b9e2bfb12229ab8b6a604995d5b77a21df609';
+const GOOGLE_SHEET_ID = '1ncxlcx8f8BfhHeT9ph1sb0HqencDOnkwCMeoYg9e3tk';
+const GOOGLE_CLIENT_ID = '510608755501-ucl194dpbraertmqp8188bb7muh1b5oh.apps.googleusercontent.com';
+const GOOGLE_CLIENT_SECRET = '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';
+const GOOGLE_REFRESH_TOKEN = '1//04hKsI6kHczRqCgYIARAAGAQSNwF-L9IrDHN4iJWBcImylm9fFCx8IXWHgQMln-HkTTCL_k7XbzI578mhEAXlqMIFA3HV8i0Ghao';
+const JSON_FEED_URL = 'https://vilpas.kiinteistomaailma.fi/export/km/listings/baseline.json';
+const GOOGLE_REDIRECT_URI = 'https://kiinteistomaailma.norr3.fi/auth/google-callback';
 
 let campaigns = [];
 let users = [
@@ -82,7 +83,7 @@ async function syncToSheets(campaignsArray) {
       ((parseFloat(campaign.budget.pdooh || 0) / days) || 0).toFixed(2),
       campaign.start_date,
       campaign.end_date || '',
-      campaign.status ? 'yes' : 'no'
+      campaign.status ? '1' : '0'
     ]);
   });
   await axios.post(
@@ -92,7 +93,17 @@ async function syncToSheets(campaignsArray) {
   );
 }
 
-async function loadCampaignsFromSheet(agentEmail) {
+async function isUniqueCampaignId(id) {
+  const accessToken = await refreshGoogleToken();
+  const sheetResp = await axios.get(
+    `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_ID}/values/LIVE`,
+    { headers: { 'Authorization': `Bearer ${accessToken}` } }
+  );
+  const values = sheetResp.data.values || [];
+  return !values.some(row => row[0] === id);
+}
+
+async function loadCampaignsFromSheet(agentKey) {
   const accessToken = await refreshGoogleToken();
   const sheetResp = await axios.get(
     `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_ID}/values/LIVE`,
@@ -104,7 +115,7 @@ async function loadCampaignsFromSheet(agentEmail) {
     const row = values[i];
     const campaign_id = row[0];
     const agent_key = row[4];
-    if (!agentEmail || agent_key.toLowerCase() === agentEmail.toLowerCase()) {
+    if (!agentKey || agent_key.toLowerCase() === agentKey.toLowerCase()) {
       let existingCamp = loadedCampaigns.find(c => c.id === campaign_id);
       if (!existingCamp) {
         existingCamp = {
@@ -122,7 +133,7 @@ async function loadCampaignsFromSheet(agentEmail) {
           end_date: row[21] || '',
           channels: [],
           budget: { meta: 0, display: 0, pdooh: 0 },
-          status: (row[22] === 'yes')
+          status: row[22] === '1' ? 1 : 0
         };
         loadedCampaigns.push(existingCamp);
       }
@@ -148,9 +159,13 @@ async function loadCampaignsFromSheet(agentEmail) {
 }
 
 app.get('/api/apartments', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  
   try {
     if (!apartmentsCache.length) {
-      const response = await axios.get(process.env.JSON_FEED_URL || 'https://vilpas.kiinteistomaailma.fi/export/km/listings/baseline.json', {
+      const response = await axios.get(JSON_FEED_URL, {
         headers: { 'Cache-Control': 'no-cache' }
       });
       apartmentsCache = response.data;
@@ -172,13 +187,17 @@ app.get('/api/apartments', async (req, res) => {
 });
 
 app.get('/api/campaigns', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+
   const token = req.headers.authorization?.split(' ')[1];
   try {
     if (!token) return res.status(401).json({ error: 'No token provided' });
     jwt.verify(token, JWT_SECRET, async (err, decoded) => {
       if (err) return res.status(401).json({ error: 'Invalid token' });
-      const agentEmail = (decoded.role === 'partner') ? decoded.email : null;
-      const allCamps = await loadCampaignsFromSheet(agentEmail);
+      const agentKey = (decoded.role === 'partner') ? decoded.agentKey : null;
+      const allCamps = await loadCampaignsFromSheet(agentKey);
       if (decoded.role === 'partner') return res.json(allCamps);
       else {
         const allLoaded = await loadCampaignsFromSheet(null);
@@ -232,11 +251,11 @@ app.post('/api/campaigns', (req, res) => {
   }
 });
 
-app.put('/api/campaigns', async (req, res) => {
+app.put('/api/campaigns', (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
   try {
     if (!token) return res.status(401).json({ error: 'No token provided' });
-    jwt.verify(token, JWT_SECRET, async (err, decoded) => {
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
       if (err) return res.status(401).json({ error: 'Invalid token' });
       const idx = campaigns.findIndex(c => c.id === req.body.id);
       if (idx === -1) return res.status(404).json({ error: 'Campaign not found' });
@@ -244,7 +263,6 @@ app.put('/api/campaigns', async (req, res) => {
         return res.status(403).json({ error: 'Unauthorized access' });
       }
       campaigns[idx] = { ...campaigns[idx], ...req.body };
-      await syncToSheets([campaigns[idx]]);
       res.json(campaigns[idx]);
     });
   } catch (error) {
@@ -272,15 +290,20 @@ app.patch('/api/campaigns/status/:id', (req, res) => {
 });
 
 app.post('/api/sheets/update', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+
   const token = req.headers.authorization?.split(' ')[1];
   try {
     if (!token) return res.status(401).json({ error: 'No token provided' });
     jwt.verify(token, JWT_SECRET, async (err, decoded) => {
       if (err) return res.status(401).json({ error: 'Invalid token' });
-      const campaign = campaigns.find(c => c.id === req.body.campaignId);
+      const campaignsFromSheet = await loadCampaignsFromSheet(decoded.agentKey);
+      const campaign = campaignsFromSheet.find(c => c.id === req.body.campaignId);
       if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
-      // (Temporarily disabled: campaign syncing is done on POST)
-      res.json({ message: 'Campaign syncing disabled for edits' });
+      await syncToSheets([campaign]);
+      res.json({ message: 'Campaign synced to Google Sheets' });
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to sync to Google Sheets: ' + error.message });
@@ -288,6 +311,10 @@ app.post('/api/sheets/update', async (req, res) => {
 });
 
 app.post('/api/auth/login', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+
   const { email, password } = req.body;
   const user = users.find(u => u.email === email);
   if (!user || !bcrypt.compareSync(password, user.password)) {
@@ -315,17 +342,24 @@ app.post('/api/auth/login', (req, res) => {
 });
 
 app.get('/auth/google-login', (req, res) => {
-  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=https://kiinteistomaailma.norr3.fi/auth/google-callback&response_type=code&scope=email profile`);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${GOOGLE_REDIRECT_URI}&response_type=code&scope=email profile`);
 });
 
 app.get('/auth/google-callback', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+
   const code = req.query.code;
   try {
     const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
       code,
       client_id: GOOGLE_CLIENT_ID,
       client_secret: GOOGLE_CLIENT_SECRET,
-      redirect_uri: 'https://kiinteistomaailma.norr3.fi/auth/google-callback',
+      redirect_uri: GOOGLE_REDIRECT_URI,
       grant_type: 'authorization_code'
     });
     const { access_token } = tokenResponse.data;
@@ -341,11 +375,21 @@ app.get('/auth/google-callback', async (req, res) => {
         role: 'partner',
         partnerName: 'Kiinteistömaailma Helsinki',
         agentName: '',
-        agentKey: '',
+        agentKey: '1160ska', // Default agentKey for new Google users
         agentImage: ''
       });
     }
-    const token = jwt.sign({ email: user.email, role: 'partner', partnerName: 'Kiinteistömaailma Helsinki' }, JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign(
+      { 
+        email: user.email, 
+        role: 'partner', 
+        partnerName: 'Kiinteistömaailma Helsinki', 
+        agentName: '', 
+        agentKey: '1160ska' // Hardcode or dynamically set based on user
+      },
+      JWT_SECRET,
+      { expiresIn: '1h' }
+    );
     res.redirect(`https://kiinteistomaailma.norr3.fi/?token=${token}&service=kiinteistomaailma`);
   } catch (error) {
     res.status(500).send('Google login failed: ' + error.message);
@@ -353,6 +397,10 @@ app.get('/auth/google-callback', async (req, res) => {
 });
 
 app.post('/api/users', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+
   const token = req.headers.authorization?.split(' ')[1];
   try {
     if (!token) return res.status(401).json({ error: 'No token provided' });
@@ -368,6 +416,10 @@ app.post('/api/users', (req, res) => {
 });
 
 app.delete('/api/users/:email', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+
   const token = req.headers.authorization?.split(' ')[1];
   try {
     if (!token) return res.status(401).json({ error: 'No token provided' });
@@ -382,6 +434,10 @@ app.delete('/api/users/:email', (req, res) => {
 });
 
 app.put('/api/users/:email', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+
   const token = req.headers.authorization?.split(' ')[1];
   try {
     if (!token) return res.status(401).json({ error: 'No token provided' });
@@ -400,4 +456,9 @@ app.put('/api/users/:email', (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
+module.exports = app; // Export for Vercel
