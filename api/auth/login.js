@@ -23,6 +23,19 @@ const users = [
 ];
 
 module.exports = async (req, res) => {
+  const origin = req.headers.origin;
+  const allowedOrigins = [
+    'https://kiinteistomaailma.norr3.fi',
+    'https://norr3-ia42wsmob-norr3.vercel.app'
+  ];
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', 'https://kiinteistomaailma.norr3.fi'); // Fallback to main domain
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+
   const { email, password } = req.body;
   const user = users.find(u => u.email === email);
   if (!user || !bcrypt.compareSync(password, user.password)) {
