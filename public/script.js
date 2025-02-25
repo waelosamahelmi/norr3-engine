@@ -64,28 +64,6 @@ function getThumbnailUrl(apt) {
   return mainImg && mainImg.url ? mainImg.url : 'https://via.placeholder.com/50';
 }
 
-let users = [
-  {
-    email: "seppo.kairikko@kiinteistomaailma.fi",
-    password: bcrypt.hashSync("password123", 10),
-    role: "partner",
-    partnerName: "Kiinteistömaailma Helsinki",
-    agentName: "Seppo Kairikko",
-    agentKey: "1160ska",
-    agentImage: ""
-  },
-  {
-    email: "admin@norr3.fi",
-    password: bcrypt.hashSync("Admin123", 10),
-    role: "admin",
-    partnerName: "NØRR3",
-    agentName: "",
-    agentKey: "",
-    agentImage: ""
-  }
-];
-
-
 function setLanguage(lang) {
   currentLanguage = lang;
   document.querySelectorAll('[data-translate]').forEach(el => {
@@ -361,6 +339,47 @@ async function norr3CreateCampaign() {
 function norr3CloseCreateModal(event) {
   document.getElementById('norr3-create-modal').style.display = 'none';
   selectedApartments = [];
+}
+
+async function norr3EditCampaign(id) {
+  const token = localStorage.getItem('token');
+  showLoadingScreen(true);
+  try {
+    const [campRes, aptRes] = await Promise.all([
+      fetch(`/api/campaigns/${id}`, { headers: { 'Authorization': `Bearer ${token}` } }),
+      fetch('/api/apartments', { headers: { 'Authorization': `Bearer ${token}` } })
+    ]);
+    if (!campRes.ok || !aptRes.ok) throw new Error('Failed to load campaign or apartments');
+    const campaign = await campRes.json();
+    const apartments = await aptRes.json();
+    const storedKey = localStorage.getItem('agentEmail') || '';
+    allApartments = apartments.filter(a =>
+      (a.agentEmail || a.agencyEmail || '').toLowerCase().trim() === storedKey.toLowerCase()
+    );
+    document.getElementById('norr3-edit-modal').style.display = 'flex';
+    document.getElementById('norr3-edit-modal').setAttribute('data-campaign-id', campaign.id);
+    document.getElementById('norr3-modal-start-date').value = (campaign.start_date || '').split('T')[0];
+    if (campaign.end_date) {
+      document.getElementById('norr3-modal-end-date').value = campaign.end_date.split('T')[0];
+      document.getElementById('norr3-modal-ongoing').checked = false;
+      document.getElementById('norr3-modal-end-date').disabled = false;
+    } else {
+      document.getElementById('norr3-modal-end-date').value = '';
+      document.getElementById('norr3-modal-ongoing').checked = true;
+      document.getElementById('norr3-modal-end-date').disabled = true;
+    }
+    selectedApartments = (campaign.apartments || []).map(a => ({
+      key: a.key,
+      radius: a.radius || 1500,
+      channels: a.channels || [],
+      budget: a.budget || { meta: 0, display: 0, pdooh: 0 }
+    }));
+    updateSelectedApartments();
+  } catch (err) {
+    showAlert('Failed to load campaign for editing: ' + err.message);
+  } finally {
+    showLoadingScreen(false);
+  }
 }
 
 function norr3CloseModal(event) {
@@ -815,7 +834,6 @@ function norr3UpdateMetrics() {
     .catch(err => console.error('Error updating metrics:', err))
     .finally(() => showLoadingScreen(false));
 }
-
 
 async function norr3AddUser() {
   const token = localStorage.getItem('token');
