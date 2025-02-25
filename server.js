@@ -11,7 +11,7 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
-const PORT = process.env.PORT || 5000; // Add this line
+const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const GOOGLE_SHEET_ID = process.env.GOOGLE_SHEET_ID || 'your-google-sheet-id';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'your-google-client-id';
@@ -82,7 +82,7 @@ async function syncToSheets(campaignsArray) {
       ((parseFloat(campaign.budget.pdooh || 0) / days) || 0).toFixed(2),
       campaign.start_date,
       campaign.end_date || '',
-      campaign.status ? '1' : '0'
+      campaign.status ? 'yes' : 'no'
     ]);
   });
   await axios.post(
@@ -92,7 +92,7 @@ async function syncToSheets(campaignsArray) {
   );
 }
 
-async function loadCampaignsFromSheet(agentKey) {
+async function loadCampaignsFromSheet(agentEmail) {
   const accessToken = await refreshGoogleToken();
   const sheetResp = await axios.get(
     `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_ID}/values/LIVE`,
@@ -102,12 +102,13 @@ async function loadCampaignsFromSheet(agentKey) {
   const loadedCampaigns = [];
   for (let i = 1; i < values.length; i++) {
     const row = values[i];
-    const rowAgentKey = row[4];
-    if (!agentKey || rowAgentKey.toLowerCase() === agentKey.toLowerCase()) {
-      let existingCamp = loadedCampaigns.find(c => c.id === row[0]);
+    const campaign_id = row[0];
+    const agent_key = row[4];
+    if (!agentEmail || agent_key.toLowerCase() === agentEmail.toLowerCase()) {
+      let existingCamp = loadedCampaigns.find(c => c.id === campaign_id);
       if (!existingCamp) {
         existingCamp = {
-          id: row[0],
+          id: campaign_id,
           partner_id: row[1],
           partnerName: row[2],
           agent_name: row[3],
@@ -121,18 +122,14 @@ async function loadCampaignsFromSheet(agentKey) {
           end_date: row[21] || '',
           channels: [],
           budget: { meta: 0, display: 0, pdooh: 0 },
-          status: (row[22] === '1')
+          status: (row[22] === 'yes')
         };
         loadedCampaigns.push(existingCamp);
       }
       existingCamp.apartments.push({
         key: row[5],
         radius: parseInt(row[10]) || 1500,
-        channels: [
-          row[11] === '1' ? 'meta' : null,
-          row[12] === '1' ? 'display' : null,
-          row[13] === '1' ? 'pdooh' : null
-        ].filter(Boolean),
+        channels: [row[11] === '1' ? 'meta' : null, row[12] === '1' ? 'display' : null, row[13] === '1' ? 'pdooh' : null].filter(Boolean),
         budget: {
           meta: parseFloat(row[14]) || 0,
           display: parseFloat(row[16]) || 0,
@@ -180,13 +177,12 @@ app.get('/api/campaigns', async (req, res) => {
     if (!token) return res.status(401).json({ error: 'No token provided' });
     jwt.verify(token, JWT_SECRET, async (err, decoded) => {
       if (err) return res.status(401).json({ error: 'Invalid token' });
-      const agentKey = (decoded.role === 'partner') ? decoded.agentKey : null;
-      const all = await loadCampaignsFromSheet(agentKey);
-      if (decoded.role === 'partner') {
-        return res.json(all);
-      } else {
-        const allCamps = await loadCampaignsFromSheet(null);
-        res.json(allCamps);
+      const agentEmail = (decoded.role === 'partner') ? decoded.email : null;
+      const allCamps = await loadCampaignsFromSheet(agentEmail);
+      if (decoded.role === 'partner') return res.json(allCamps);
+      else {
+        const allLoaded = await loadCampaignsFromSheet(null);
+        res.json(allLoaded);
       }
     });
   } catch (error) {
@@ -203,7 +199,7 @@ app.get('/api/campaigns/:id', (req, res) => {
       if (err) return res.status(401).json({ error: 'Invalid token' });
       const camp = campaigns.find(c => c.id === req.params.id);
       if (!camp) return res.status(404).json({ error: 'Campaign not found in memory' });
-      if (decoded.role === 'partner' && camp.agent_key.toLowerCase() !== decoded.agentKey.toLowerCase()) {
+      if (decoded.role === 'partner' && camp.agent_key.toLowerCase() !== decoded.email.toLowerCase()) {
         return res.status(403).json({ error: 'Unauthorized access' });
       }
       res.json(camp);
@@ -220,11 +216,12 @@ app.post('/api/campaigns', (req, res) => {
     jwt.verify(token, JWT_SECRET, async (err, decoded) => {
       if (err) return res.status(401).json({ error: 'Invalid token' });
       const randomId = String(Math.floor(1000 + Math.random() * 9000));
+      // Use agent details from token payload
       const newCampaign = {
         ...req.body,
         id: randomId,
-        agent_name: decoded.agentName,
-        agent_key: decoded.agentKey
+        agent_name: decoded.agentName || 'Unknown Agent',
+        agent_key: decoded.agentKey || 'Unknown'
       };
       campaigns.push(newCampaign);
       await syncToSheets([newCampaign]);
@@ -243,7 +240,7 @@ app.put('/api/campaigns', async (req, res) => {
       if (err) return res.status(401).json({ error: 'Invalid token' });
       const idx = campaigns.findIndex(c => c.id === req.body.id);
       if (idx === -1) return res.status(404).json({ error: 'Campaign not found' });
-      if (decoded.role === 'partner' && campaigns[idx].agent_key.toLowerCase() !== decoded.agentKey.toLowerCase()) {
+      if (decoded.role === 'partner' && campaigns[idx].agent_key.toLowerCase() !== decoded.email.toLowerCase()) {
         return res.status(403).json({ error: 'Unauthorized access' });
       }
       campaigns[idx] = { ...campaigns[idx], ...req.body };
@@ -263,7 +260,7 @@ app.patch('/api/campaigns/status/:id', (req, res) => {
       if (err) return res.status(401).json({ error: 'Invalid token' });
       const camp = campaigns.find(c => c.id === req.params.id);
       if (!camp) return res.status(404).json({ error: 'Campaign not found' });
-      if (decoded.role === 'partner' && camp.agent_key.toLowerCase() !== decoded.agentKey.toLowerCase()) {
+      if (decoded.role === 'partner' && camp.agent_key.toLowerCase() !== decoded.email.toLowerCase()) {
         return res.status(403).json({ error: 'Unauthorized access' });
       }
       camp.status = req.body.status;
@@ -282,8 +279,8 @@ app.post('/api/sheets/update', async (req, res) => {
       if (err) return res.status(401).json({ error: 'Invalid token' });
       const campaign = campaigns.find(c => c.id === req.body.campaignId);
       if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
-      await syncToSheets([campaign]);
-      res.json({ message: 'Campaign synced to Google Sheets' });
+      // (Temporarily disabled: campaign syncing is done on POST)
+      res.json({ message: 'Campaign syncing disabled for edits' });
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to sync to Google Sheets: ' + error.message });
@@ -361,11 +358,7 @@ app.post('/api/users', (req, res) => {
     if (!token) return res.status(401).json({ error: 'No token provided' });
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
       if (err || decoded.role !== 'admin') return res.status(401).json({ error: 'Admin access required' });
-      const user = {
-        ...req.body,
-        password: bcrypt.hashSync(req.body.password, 10),
-        role: 'partner'
-      };
+      const user = { ...req.body, password: bcrypt.hashSync(req.body.password, 10), role: 'partner' };
       users.push(user);
       res.json(user);
     });
@@ -407,6 +400,4 @@ app.put('/api/users/:email', (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
