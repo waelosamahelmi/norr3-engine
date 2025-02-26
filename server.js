@@ -196,12 +196,12 @@ app.get('/api/campaigns', async (req, res) => {
     if (!token) return res.status(401).json({ error: 'No token provided' });
     jwt.verify(token, JWT_SECRET, async (err, decoded) => {
       if (err) return res.status(401).json({ error: 'Invalid token' });
-      const allCamps = await loadCampaignsFromSheet(null); // Fetch all campaigns from sheet
-      if (decoded.role === 'partner') {
-        const agentKey = decoded.agentKey || '';
-        res.json(allCamps.filter(c => (c.agent_key || '').toLowerCase() === agentKey.toLowerCase()));
-      } else { // Admin sees all campaigns
-        res.json(allCamps);
+      const agentKey = (decoded.role === 'partner') ? decoded.agentKey : null;
+      const allCamps = await loadCampaignsFromSheet(agentKey);
+      if (decoded.role === 'partner') return res.json(allCamps);
+      else {
+        const allLoaded = await loadCampaignsFromSheet(null);
+        res.json(allLoaded);
       }
     });
   } catch (error) {
@@ -372,7 +372,7 @@ app.get('/auth/google-callback', async (req, res) => {
       users.push({
         email: user.email,
         password: bcrypt.hashSync('defaultPassword123', 10),
-        role: 'admin', // Force admin role for all Google logins
+        role: 'partner',
         partnerName: 'Kiinteistömaailma Helsinki',
         agentName: '',
         agentKey: '1160ska', // Default agentKey for new Google users
@@ -382,7 +382,7 @@ app.get('/auth/google-callback', async (req, res) => {
     const token = jwt.sign(
       { 
         email: user.email, 
-        role: 'admin', // Force admin role for all Google logins
+        role: 'partner', 
         partnerName: 'Kiinteistömaailma Helsinki', 
         agentName: '', 
         agentKey: '1160ska' // Hardcode or dynamically set based on user

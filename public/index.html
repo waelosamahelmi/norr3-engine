@@ -40,29 +40,19 @@
               <option value="on" data-translate="active">Active</option>
               <option value="off" data-translate="paused">Paused</option>
             </select>
-            <select id="norr3-filter-user" class="norr3-filter" data-translate="filterByUser">
-              <option value="">All Users</option>
-              <!-- Populate dynamically with user emails from users list -->
-            </select>
-            <select id="norr3-filter-agency" class="norr3-filter" data-translate="filterByAgency">
-              <option value="">All Agencies</option>
-              <option value="Kiinteistömaailma Helsinki">Kiinteistömaailma Helsinki</option>
-              <option value="NØRR3">NØRR3</option>
-            </select>
-            <select id="norr3-filter-channel" class="norr3-filter" data-translate="filterByChannel">
-              <option value="">All Channels</option>
-              <option value="meta">Meta</option>
-              <option value="display">Display</option>
-              <option value="pdooh">PDOOH</option>
-            </select>
-            <select id="norr3-filter-city" class="norr3-filter" data-translate="filterByCity">
-              <option value="">All Cities</option>
-              <!-- Populate dynamically with unique cities from campaigns -->
-            </select>
+            <button onclick="norr3ExportCampaigns()" class="norr3-btn-primary" type="button" aria-label="Export Campaigns">
+              <i class="fas fa-download"></i> <span>Export</span>
+            </button>
+            <button id="norr3-create-campaign-btn" onclick="norr3CreateCampaign()" class="norr3-btn-primary" type="button" aria-label="Create New Campaign">
+              <i class="fas fa-plus"></i> <span data-translate="createCampaign">Create Campaign</span>
+            </button>
             <button class="norr3-btn-primary" onclick="norr3FetchCampaigns()" data-translate="fetchCampaigns">Fetch</button>
-            <button class="norr3-btn-primary" onclick="norr3ExportCampaigns()" data-translate="exportCampaigns">Export</button>
-            <button class="norr3-btn-primary" onclick="norr3CreateCampaign()" data-translate="createCampaign">Create</button>
-            <button class="norr3-btn-primary" onclick="norr3Logout()" data-translate="logout">Logout</button>
+            <span id="norr3-loading-spinner" class="norr3-loading-spinner" style="display: none;" aria-live="polite"><i class="fas fa-spinner fa-spin"></i></span>
+          </div>
+          <div class="norr3-right-controls">
+            <button onclick="norr3Logout()" class="norr3-btn-logout" type="button" aria-label="Logout">
+              <i class="fas fa-sign-out-alt"></i> <span data-translate="logout">Logout</span>
+            </button>
             <div class="norr3-notification" role="button" tabindex="0" aria-label="Show notifications" onclick="norr3ShowNotifications()">
               <i class="fas fa-bell" id="norr3-notification-icon"></i>
             </div>
