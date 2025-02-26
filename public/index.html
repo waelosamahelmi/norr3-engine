@@ -22,8 +22,8 @@
     <section id="norr3-service-selection" class="norr3-fade-in" style="display: none;" aria-live="polite">
       <h2 class="norr3-h2" data-translate="selectService">Select Your Service</h2>
       <div class="norr3-service-grid" role="radiogroup" aria-label="Select Service">
+        <button onclick="norr3SelectService('norr3')" class="norr3-btn-service" type="button" aria-label="NØRR3">NØRR3</button>
         <button onclick="norr3SelectService('kiinteistomaailma')" class="norr3-btn-service" type="button" aria-label="Kiinteistömaailma">Kiinteistömaailma</button>
-        <button onclick="norr3SelectService('terveystalo')" class="norr3-btn-service" type="button" aria-label="Terveystalo">Terveystalo</button>
       </div>
     </section>
     <section id="norr3-campaign-setup" class="norr3-fade-in" style="display: none;" aria-live="polite">
@@ -41,21 +41,28 @@
               <option value="off" data-translate="paused">Paused</option>
             </select>
             <button onclick="norr3ExportCampaigns()" class="norr3-btn-primary" type="button" aria-label="Export Campaigns">
-              <i class="fas fa-download"></i> <span>Export</span>
+              <i class="fas fa-download"></i> <span data-translate="exportCampaigns">Export</span>
             </button>
             <button id="norr3-create-campaign-btn" onclick="norr3CreateCampaign()" class="norr3-btn-primary" type="button" aria-label="Create New Campaign">
               <i class="fas fa-plus"></i> <span data-translate="createCampaign">Create Campaign</span>
             </button>
-            <button class="norr3-btn-primary" onclick="norr3FetchCampaigns()" data-translate="fetchCampaigns">Fetch</button>
+            <button class="norr3-btn-primary" onclick="norr3FetchCampaigns()" data-translate="fetchCampaigns">Fetch</span>
+            </button>
             <span id="norr3-loading-spinner" class="norr3-loading-spinner" style="display: none;" aria-live="polite"><i class="fas fa-spinner fa-spin"></i></span>
           </div>
           <div class="norr3-right-controls">
-            <button onclick="norr3Logout()" class="norr3-btn-logout" type="button" aria-label="Logout">
-              <i class="fas fa-sign-out-alt"></i> <span data-translate="logout">Logout</span>
-            </button>
             <div class="norr3-notification" role="button" tabindex="0" aria-label="Show notifications" onclick="norr3ShowNotifications()">
               <i class="fas fa-bell" id="norr3-notification-icon"></i>
             </div>
+            <div class="norr3-profile" role="button" tabindex="0" aria-label="User profile" onclick="toggleProfileDropdown()">
+              <img id="norr3-profile-img" src="https://via.placeholder.com/50" alt="User Profile" class="norr3-profile-img"/>
+              <div id="norr3-profile-dropdown" class="norr3-profile-dropdown" style="display: none;">
+                <!-- Populated dynamically by script.js -->
+              </div>
+            </div>
+            <button onclick="norr3Logout()" class="norr3-btn-logout" type="button" aria-label="Logout">
+              <i class="fas fa-sign-out-alt"></i> <span data-translate="logout">Logout</span>
+            </button>
             <button onclick="norr3UserManagement()" class="norr3-btn-primary" type="button" style="display: none;" id="norr3-user-management-btn">
               <i class="fas fa-users"></i> <span data-translate="userManagement">User Management</span>
             </button>
@@ -65,8 +72,7 @@
       <div class="norr3-metrics" role="region" aria-label="Campaign Metrics">
         <div class="norr3-metric-card" role="status"><span data-translate="activeCampaigns">Active Campaigns:</span> <span id="norr3-active-count">0</span></div>
         <div class="norr3-metric-card" role="status"><span data-translate="pausedCampaigns">Paused Campaigns:</span> <span id="norr3-paused-count">0</span></div>
-        <div class="norr3-metric-card" role="status"><span data-translate="totalBudgetLabel">Total Budget:</span> <span id="norr3-total-budget">0€</span></div>
-        <div class="norr3-metric-card" role="status"><span data-translate="lastUpdated">Last Updated:</span> <span id="norr3-last-updated">N/A</span></div>
+        <div class="norr3-metric-card" role="status"><span data-translate="totalBudget">Total Budget:</span> <span id="norr3-total-budget">0€</span></div>
       </div>
       <div class="norr3-campaign-table" role="table" aria-label="Campaign List">
         <div class="norr3-table-header" role="rowgroup">
@@ -86,12 +92,17 @@
     <section id="norr3-user-management" class="norr3-fade-in" style="display: none;" aria-live="polite">
       <h2 class="norr3-h2" data-translate="userManagement">User Management</h2>
       <div class="norr3-user-grid" role="form" aria-label="User Management Form">
+        <input type="email" id="norr3-user-email" placeholder="Email" aria-label="Email" required />
+        <button onclick="norr3AutoFillUser()" class="norr3-btn-primary" type="button" data-translate="autoFill" aria-label="Auto Fill Agent Info">Auto Fill</button>
         <input type="text" id="norr3-user-partner-name" placeholder="Partner Name" aria-label="Partner Name" required />
         <input type="text" id="norr3-user-agent-name" placeholder="Agent Name" aria-label="Agent Name" required />
         <input type="text" id="norr3-user-agent-key" placeholder="Agent Key" aria-label="Agent Key" required />
-        <input type="url" id="norr3-user-agent-image" placeholder="Agent Image URL (optional)" aria-label="Agent Image URL" />
-        <input type="email" id="norr3-user-email" placeholder="Email" aria-label="Email" required />
+        <input type="url" id="norr3-user-agent-image" placeholder="Agent Image URL" aria-label="Agent Image URL" />
         <input type="password" id="norr3-user-password" placeholder="Password" aria-label="Password" required />
+        <select id="norr3-user-role" aria-label="User Role">
+          <option value="partner">Partner</option>
+          <option value="admin">Admin</option>
+        </select>
         <button onclick="norr3AddUser()" class="norr3-btn-primary" type="button" aria-label="Add User">Add User</button>
         <button onclick="norr3RemoveUser()" class="norr3-btn-primary" type="button" aria-label="Remove User">Remove User</button>
         <button onclick="norr3EditUser()" class="norr3-btn-primary" type="button" aria-label="Edit User">Edit User</button>
@@ -104,6 +115,9 @@
           <button class="norr3-close-btn" onclick="norr3CloseCreateModal(event)" aria-label="Close modal">×</button>
           <h3 class="norr3-h3" data-translate="createCampaign">Create Campaign</h3>
           <div class="norr3-modal-section">
+            <h4 class="norr3-h4" data-translate="agent">Agent</h4>
+            <input type="email" id="norr3-create-agent-email" placeholder="Agent Email" aria-label="Agent Email" oninput="suggestAgents(this.value)" required />
+            <div id="agent-suggestions" class="norr3-agent-suggestions" style="display: none;"></div>
             <h4 class="norr3-h4" data-translate="dates">Dates</h4>
             <label>Start Date: <input type="date" id="norr3-create-start-date" class="norr3-input-modern" aria-label="Start date" required /></label>
             <label>End Date: <input type="date" id="norr3-create-end-date" class="norr3-input-modern" aria-label="End date" /></label>
@@ -113,6 +127,28 @@
                 <input type="checkbox" id="norr3-create-ongoing" onchange="norr3ToggleCreateEndDate()" aria-label="Ongoing campaign" />
                 <span class="norr3-slider" role="switch" aria-checked="false"></span>
               </label>
+            </p>
+            <h4 class="norr3-h4" data-translate="budgetAllocation">Budget Allocation</h4>
+            <p>Meta:
+              <label class="norr3-toggle-slider">
+                <input type="checkbox" id="norr3-create-meta" onchange="norr3UpdateCreateChannels()" aria-label="Meta channel" />
+                <span class="norr3-slider"></span>
+              </label>
+              <input type="number" id="norr3-create-budget-meta" class="norr3-input-modern norr3-budget-input" placeholder="Budget (€)" aria-label="Meta budget" min="0" required disabled style="opacity: 0.5;"/>
+            </p>
+            <p>Display:
+              <label class="norr3-toggle-slider">
+                <input type="checkbox" id="norr3-create-display" onchange="norr3UpdateCreateChannels()" aria-label="Display channel" />
+                <span class="norr3-slider"></span>
+              </label>
+              <input type="number" id="norr3-create-budget-display" class="norr3-input-modern norr3-budget-input" placeholder="Budget (€)" aria-label="Display budget" min="0" required disabled style="opacity: 0.5;"/>
+            </p>
+            <p>PDOOH:
+              <label class="norr3-toggle-slider">
+                <input type="checkbox" id="norr3-create-pdooh" onchange="norr3UpdateCreateChannels()" aria-label="PDOOH channel" />
+                <span class="norr3-slider"></span>
+              </label>
+              <input type="number" id="norr3-create-budget-pdooh" class="norr3-input-modern norr3-budget-input" placeholder="Budget (€)" aria-label="PDOOH budget" min="0" required disabled style="opacity: 0.5;"/>
             </p>
           </div>
           <div class="norr3-modal-actions">
@@ -133,6 +169,9 @@
           <button class="norr3-close-btn" onclick="norr3CloseModal(event)" aria-label="Close modal">×</button>
           <h3 class="norr3-h3" data-translate="editCampaign">Edit Campaign</h3>
           <div class="norr3-modal-section">
+            <h4 class="norr3-h4" data-translate="agent">Agent</h4>
+            <input type="email" id="norr3-edit-agent-email" placeholder="Agent Email" aria-label="Agent Email" oninput="suggestAgents(this.value)" required />
+            <div id="agent-suggestions-edit" class="norr3-agent-suggestions" style="display: none;"></div>
             <h4 class="norr3-h4" data-translate="dates">Dates</h4>
             <label>Start Date: <input type="date" id="norr3-modal-start-date" class="norr3-input-modern" aria-label="Start date" required /></label>
             <label>End Date: <input type="date" id="norr3-modal-end-date" class="norr3-input-modern" aria-label="End date" /></label>
@@ -142,6 +181,28 @@
                 <input type="checkbox" id="norr3-modal-ongoing" onchange="norr3ToggleEndDate()" aria-label="Ongoing campaign" />
                 <span class="norr3-slider" role="switch" aria-checked="false"></span>
               </label>
+            </p>
+            <h4 class="norr3-h4" data-translate="budgetAllocation">Budget Allocation</h4>
+            <p>Meta:
+              <label class="norr3-toggle-slider">
+                <input type="checkbox" id="norr3-modal-meta" onchange="norr3UpdateEditChannels()" aria-label="Meta channel" />
+                <span class="norr3-slider"></span>
+              </label>
+              <input type="number" id="norr3-modal-budget-meta" class="norr3-input-modern norr3-budget-input" placeholder="Budget (€)" aria-label="Meta budget" min="0" required disabled style="opacity: 0.5;"/>
+            </p>
+            <p>Display:
+              <label class="norr3-toggle-slider">
+                <input type="checkbox" id="norr3-modal-display" onchange="norr3UpdateEditChannels()" aria-label="Display channel" />
+                <span class="norr3-slider"></span>
+              </label>
+              <input type="number" id="norr3-modal-budget-display" class="norr3-input-modern norr3-budget-input" placeholder="Budget (€)" aria-label="Display budget" min="0" required disabled style="opacity: 0.5;"/>
+            </p>
+            <p>PDOOH:
+              <label class="norr3-toggle-slider">
+                <input type="checkbox" id="norr3-modal-pdooh" onchange="norr3UpdateEditChannels()" aria-label="PDOOH channel" />
+                <span class="norr3-slider"></span>
+              </label>
+              <input type="number" id="norr3-modal-budget-pdooh" class="norr3-input-modern norr3-budget-input" placeholder="Budget (€)" aria-label="PDOOH budget" min="0" required disabled style="opacity: 0.5;"/>
             </p>
           </div>
           <div class="norr3-modal-actions">
@@ -161,13 +222,16 @@
       <div class="norr3-modal-content norr3-slide-in norr3-two-columns">
         <div class="norr3-modal-left">
           <button class="norr3-close-btn" onclick="norr3CloseApartmentModal(event)" aria-label="Close modal">×</button>
-          <h3 class="norr3-h3" data-translate="selectApartments" role="heading" aria-level="3">Select Apartments</h3>
+          <h3 class="norr3-h3" data-translate="selectApartments">Select Apartments</h3>
           <div id="norr3-apartment-list" class="norr3-apartment-table" role="table" aria-label="Apartment List"></div>
         </div>
         <div class="norr3-modal-right">
           <h4 class="norr3-h4">Apartment Settings</h4>
           <label>Radius:
             <input type="number" id="norr3-apartment-radius" class="norr3-input-modern norr3-budget-input" placeholder="Radius (meters)" aria-label="Radius in meters" required/>
+          </label>
+          <label>Explanation:
+            <input type="text" id="norr3-apartment-explanation" class="norr3-input-modern" placeholder="Explanation" aria-label="Apartment explanation" />
           </label>
           <div class="norr3-modal-section">
             <p>Meta:
@@ -202,28 +266,28 @@
     <div id="norr3-apartment-info-modal" class="norr3-modal" style="display: none;" role="dialog" aria-label="Apartment Details">
       <div class="norr3-modal-content norr3-slide-in">
         <button class="norr3-close-btn" onclick="norr3CloseApartmentInfoModal(event)" aria-label="Close modal">×</button>
-        <h3 class="norr3-h3" data-translate="apartmentDetails" role="heading" aria-level="3">Apartment Details</h3>
+        <h3 class="norr3-h3" data-translate="apartmentDetails">Apartment Details</h3>
         <div id="norr3-apartment-info" class="norr3-apartment-info" role="region" aria-label="Apartment Information"></div>
       </div>
     </div>
     <div id="norr3-campaign-info-modal" class="norr3-modal" style="display: none;" role="dialog" aria-label="Campaign Details">
       <div class="norr3-modal-content norr3-slide-in">
         <button class="norr3-close-btn" onclick="norr3CloseCampaignInfoModal(event)" aria-label="Close modal">×</button>
-        <h3 class="norr3-h3" data-translate="campaignDetails" role="heading" aria-level="3">Campaign Details</h3>
+        <h3 class="norr3-h3" data-translate="campaignDetails">Campaign Details</h3>
         <div id="norr3-campaign-info" class="norr3-campaign-info" role="region" aria-label="Campaign Information"></div>
       </div>
     </div>
     <div id="norr3-notification-modal" class="norr3-modal" style="display: none;" role="dialog" aria-label="Notifications">
       <div class="norr3-modal-content norr3-slide-in">
         <button class="norr3-close-btn" onclick="norr3CloseNotificationModal(event)" aria-label="Close notifications">×</button>
-        <h3 class="norr3-h3" data-translate="notifications" role="heading" aria-level="3">Notifications</h3>
+        <h3 class="norr3-h3" data-translate="notifications">Notifications</h3>
         <div id="norr3-notification-list" role="log" aria-live="polite"></div>
       </div>
     </div>
   </div>
   <section id="norr3-login-section" class="norr3-fade-in" aria-live="polite">
     <div class="norr3-login-box" role="form">
-      <input type="email" id="norr3-email" placeholder="e.g. seppo.kairikko@kiinteistomaailma.fi" required/>
+      <input type="email" id="norr3-email" placeholder="e.g. firstname.lastname@kiinteistomaailma.fi" required/>
       <input type="password" id="norr3-password" placeholder="Password" required/>
       <button onclick="norr3ManualLogin()" class="norr3-btn-google" data-translate="login">Login</button>
       <button onclick="norr3GoogleLogin()" class="norr3-btn-google" data-translate="loginWithGoogle">Login with Google</button>
@@ -235,5 +299,6 @@
     <a href="#" data-lang="sv">SV</a>
   </div>
   <script src="script.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </body>
 </html>
