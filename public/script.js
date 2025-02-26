@@ -1403,10 +1403,6 @@ window.onload = function() {
       const list = document.getElementById('norr3-campaign-list');
       list.innerHTML = `<p role="status">${translations[currentLanguage].noCampaigns}</p>`;
       // Add Fetch Campaigns button
-      const buttonContainer = document.createElement('div');
-      buttonContainer.className = 'norr3-fetch-button';
-      buttonContainer.innerHTML = `<button class="norr3-btn-primary" onclick="norr3FetchCampaigns()" data-translate="fetchCampaigns">${translations[currentLanguage].fetchCampaigns}</button>`;
-      list.parentNode.insertBefore(buttonContainer, list);
     }
   } else {
     showSection('norr3-login-section');
