@@ -298,7 +298,7 @@ async function norr3SelectService(service) {
 // Update at the top of script.js (replace the existing `let cachedCampaigns = []`)
 let cachedCampaigns = JSON.parse(localStorage.getItem('cachedCampaigns')) || [];
 
-// Update norr3FetchCampaigns to store and retrieve from localStorage
+// Update norr3FetchCampaigns
 async function norr3FetchCampaigns() {
   const token = localStorage.getItem('token');
   if (!token) {
@@ -308,15 +308,22 @@ async function norr3FetchCampaigns() {
   showLoadingScreen(true);
   try {
     const decoded = jwtDecode(token);
-    const agentKey = decoded.agentKey || '';
     const res = await fetch('/api/campaigns', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     if (!res.ok) throw new Error(await res.text());
     let camps = await res.json();
 
-    // Filter campaigns by the logged-in user's agentKey and cache them
-    cachedCampaigns = camps.filter(c => (c.agent_key || '').toLowerCase() === agentKey.toLowerCase());
+    // For admins, keep all campaigns; for partners, filter by agentKey
+    if (decoded.role === 'partner') {
+      const agentKey = decoded.agentKey || '';
+      camps = camps.filter(c => (c.agent_key || '').toLowerCase() === agentKey.toLowerCase());
+    }
+
+    // Apply filters
+    let filteredCampaigns = applyFilters(camps);
+
+    cachedCampaigns = filteredCampaigns;
     localStorage.setItem('cachedCampaigns', JSON.stringify(cachedCampaigns)); // Persist to localStorage
 
     const list = document.getElementById('norr3-campaign-list');
@@ -364,6 +371,205 @@ async function norr3FetchCampaigns() {
   }
 }
 
+// Add filter function
+function applyFilters(camps) {
+  let filtered = [...camps];
+
+  // Filter by user (agent_key from users list)
+  const userFilter = document.getElementById('norr3-filter-user')?.value;
+  if (userFilter) {
+    filtered = filtered.filter(c => c.agent_key.toLowerCase() === userFilter.toLowerCase());
+  }
+
+  // Filter by agency (partnerName)
+  const agencyFilter = document.getElementById('norr3-filter-agency')?.value;
+  if (agencyFilter) {
+    filtered = filtered.filter(c => c.partnerName.toLowerCase() === agencyFilter.toLowerCase());
+  }
+
+  // Filter by active channel (meta, display, pdooh)
+  const channelFilter = document.getElementById('norr3-filter-channel')?.value;
+  if (channelFilter) {
+    filtered = filtered.filter(c => c.channels.includes(channelFilter.toLowerCase()));
+  }
+
+  // Filter by city
+  const cityFilter = document.getElementById('norr3-filter-city')?.value;
+  if (cityFilter) {
+    filtered = filtered.filter(c => c.city.toLowerCase() === cityFilter.toLowerCase());
+  }
+
+  // Filter by active status
+  const activeFilter = document.getElementById('norr3-filter-active')?.value;
+  if (activeFilter) {
+    filtered = filtered.filter(c => c.status === (activeFilter === 'on' ? 1 : 0));
+  }
+
+  return filtered;
+}
+
+// Update window.onload to add filter event listeners
+window.onload = function() {
+  // ... (keep existing code up to filter setup)
+  setLanguage(currentLanguage);
+  const urlParams = new URLSearchParams(window.location.search);
+  const token = urlParams.get('token');
+  const service = urlParams.get('service');
+  if (token) {
+    try {
+      // Decode and validate the token to ensure it’s valid
+      const decoded = jwtDecode(token);
+      if (!decoded || !decoded.email || !decoded.role) {
+        throw new Error('Invalid token format');
+      }
+      localStorage.setItem('token', token);
+      localStorage.setItem('norr3LoggedIn', 'true');
+      localStorage.setItem('role', 'admin'); // Force admin role for Google login
+      localStorage.setItem('partnerName', 'Kiinteistömaailma Helsinki'); // Default for Google login
+      localStorage.setItem('email', decoded.email);
+      localStorage.setItem('agentEmail', decoded.email);
+      localStorage.setItem('agentKey', decoded.agentKey || '1160ska'); // Default agentKey if not provided
+      document.getElementById('norr3-container').style.display = 'block';
+      if (localStorage.getItem('role') === 'admin') {
+        showSection('norr3-service-selection');
+        document.getElementById('norr3-user-management-btn').style.display = 'inline-block';
+        document.getElementById('norr3-back-button').style.display = 'inline-block';
+      } else {
+        showSection('norr3-campaign-setup');
+        document.getElementById('norr3-user-management-btn').style.display = 'none';
+        document.getElementById('norr3-back-button').style.display = 'none';
+        // Load cached campaigns if they exist, otherwise show "No campaigns found"
+        const list = document.getElementById('norr3-campaign-list');
+        if (cachedCampaigns.length > 0) {
+          list.innerHTML = '';
+          cachedCampaigns.forEach(camp => {
+            const displayId = camp.id.length > 4 ? camp.id.slice(-4) : camp.id;
+            const totalBudget = Object.values(camp.budget).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+            const row = document.createElement('div');
+            row.className = `norr3-table-row ${!camp.status ? 'norr3-row-off' : ''}`;
+            row.setAttribute('role', 'row');
+            row.innerHTML = `
+              <span role="cell">${displayId}</span>
+              <span role="cell">${camp.agent_name || 'Unknown Agent'}</span>
+              <span role="cell">${(camp.apartments || []).map(a => a.key).join(', ') || 'None'}</span>
+              <span role="cell">${formatDate(camp.start_date)}</span>
+              <span role="cell">${camp.end_date ? formatDate(camp.end_date) : translations[currentLanguage].ongoing}</span>
+              <span role="cell">
+                ${camp.channels.includes('meta') ? '<i class="fab fa-facebook" title="Meta"></i>' : ''}
+                ${camp.channels.includes('display') ? '<i class="fas fa-desktop" title="Display"></i>' : ''}
+                ${camp.channels.includes('pdooh') ? '<i class="fas fa-sign" title="PDOOH"></i>' : ''}
+              </span>
+              <span role="cell">${totalBudget.toFixed(2)}€</span>
+              <span role="cell">
+                <label class="norr3-toggle-slider">
+                  <input type="checkbox" ${camp.status ? 'checked' : ''} onchange="norr3ToggleStatus('${camp.id}', this.checked)"/>
+                  <span class="norr3-slider"></span>
+                </label>
+              </span>
+              <span role="cell">
+                <i class="fas fa-info-circle norr3-info-icon" onclick="norr3ShowCampaignInfo('${camp.id}')" tabindex="0"></i>
+              </span>
+            `;
+            list.appendChild(row);
+          });
+          norr3UpdateMetrics();
+          norr3CheckNotifications();
+        } else {
+          list.innerHTML = `<p role="status">${translations[currentLanguage].noCampaigns}</p>`;
+        }
+      }
+    } catch (err) {
+      showAlert('Invalid Google login token: ' + err.message);
+      localStorage.clear();
+      showSection('norr3-login-section');
+    }
+  } else if (localStorage.getItem('norr3LoggedIn') === 'true') {
+    document.getElementById('norr3-container').style.display = 'block';
+    const page = localStorage.getItem('norr3Page') || 'campaign-setup';
+    if (localStorage.getItem('role') === 'admin') {
+      showSection(page === 'campaign-setup' ? 'norr3-campaign-setup' : 'norr3-service-selection');
+      document.getElementById('norr3-user-management-btn').style.display = 'inline-block';
+      document.getElementById('norr3-back-button').style.display = 'inline-block';
+    } else {
+      showSection('norr3-campaign-setup');
+      document.getElementById('norr3-user-management-btn').style.display = 'none';
+      document.getElementById('norr3-back-button').style.display = 'none';
+      // Load cached campaigns if they exist, otherwise show "No campaigns found"
+      const list = document.getElementById('norr3-campaign-list');
+      if (cachedCampaigns.length > 0) {
+        list.innerHTML = '';
+        cachedCampaigns.forEach(camp => {
+          const displayId = camp.id.length > 4 ? camp.id.slice(-4) : camp.id;
+          const totalBudget = Object.values(camp.budget).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+          const row = document.createElement('div');
+          row.className = `norr3-table-row ${!camp.status ? 'norr3-row-off' : ''}`;
+          row.setAttribute('role', 'row');
+          row.innerHTML = `
+            <span role="cell">${displayId}</span>
+            <span role="cell">${camp.agent_name || 'Unknown Agent'}</span>
+            <span role="cell">${(camp.apartments || []).map(a => a.key).join(', ') || 'None'}</span>
+            <span role="cell">${formatDate(camp.start_date)}</span>
+            <span role="cell">${camp.end_date ? formatDate(camp.end_date) : translations[currentLanguage].ongoing}</span>
+            <span role="cell">
+              ${camp.channels.includes('meta') ? '<i class="fab fa-facebook" title="Meta"></i>' : ''}
+              ${camp.channels.includes('display') ? '<i class="fas fa-desktop" title="Display"></i>' : ''}
+              ${camp.channels.includes('pdooh') ? '<i class="fas fa-sign" title="PDOOH"></i>' : ''}
+            </span>
+            <span role="cell">${totalBudget.toFixed(2)}€</span>
+            <span role="cell">
+              <label class="norr3-toggle-slider">
+                <input type="checkbox" ${camp.status ? 'checked' : ''} onchange="norr3ToggleStatus('${camp.id}', this.checked)"/>
+                <span class="norr3-slider"></span>
+              </label>
+            </span>
+            <span role="cell">
+              <i class="fas fa-info-circle norr3-info-icon" onclick="norr3ShowCampaignInfo('${camp.id}')" tabindex="0"></i>
+            </span>
+          `;
+          list.appendChild(row);
+        });
+        norr3UpdateMetrics();
+        norr3CheckNotifications();
+      } else {
+        list.innerHTML = `<p role="status">${translations[currentLanguage].noCampaigns}</p>`;
+      }
+    }
+  } else {
+    showSection('norr3-login-section');
+    if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+      showAlert(translations[currentLanguage].pleaseLogin);
+    }
+  }
+  // Add filter event listeners
+  document.getElementById('norr3-filter-user').addEventListener('change', norr3FetchCampaigns);
+  document.getElementById('norr3-filter-agency').addEventListener('change', norr3FetchCampaigns);
+  document.getElementById('norr3-filter-channel').addEventListener('change', norr3FetchCampaigns);
+  document.getElementById('norr3-filter-city').addEventListener('change', norr3FetchCampaigns);
+  document.getElementById('norr3-filter-active').addEventListener('change', norr3FetchCampaigns);
+  document.getElementById('norr3-search-campaigns').addEventListener('input', norr3FetchCampaigns);
+  document.getElementById('norr3-filter-status').addEventListener('change', norr3FetchCampaigns);
+  document.querySelector('.norr3-notification').addEventListener('keypress', e => {
+    if (e.key === 'Enter' || e.key === ' ') norr3ShowNotifications();
+  });
+  if (localStorage.getItem('role') === 'admin') {
+    norr3RenderUsers();
+  }
+
+  // Clear cached campaigns on logout or page close
+  window.addEventListener('unload', () => {
+    cachedCampaigns = [];
+  });
+  norr3Logout = function() {
+    showLoadingScreen(true);
+    cachedCampaigns = []; // Clear campaigns on logout
+    localStorage.clear();
+    document.getElementById('norr3-container').style.display = 'none';
+    showSection('norr3-login-section');
+    document.getElementById('norr3-email').value = '';
+    document.getElementById('norr3-password').value = '';
+    showLoadingScreen(false);
+  };
+}
 // Update norr3ToggleStatus to use cachedCampaigns
 async function norr3ToggleStatus(id, checked) {
   const token = localStorage.getItem('token');
@@ -488,60 +694,72 @@ window.onload = function() {
   const token = urlParams.get('token');
   const service = urlParams.get('service');
   if (token) {
-    localStorage.setItem('token', token);
-    localStorage.setItem('norr3LoggedIn', 'true');
-    localStorage.setItem('role', service === 'norr3' ? 'admin' : 'partner');
-    localStorage.setItem('partnerName', service === 'norr3' ? 'NØRR3' : 'Kiinteistömaailma Helsinki');
-    localStorage.setItem('email', 'seppo.kairikko@kiinteistomaailma.fi');
-    localStorage.setItem('agentEmail', 'seppo.kairikko@kiinteistomaailma.fi');
-    document.getElementById('norr3-container').style.display = 'block';
-    if (localStorage.getItem('role') === 'admin') {
-      showSection('norr3-service-selection');
-      document.getElementById('norr3-user-management-btn').style.display = 'inline-block';
-      document.getElementById('norr3-back-button').style.display = 'inline-block';
-    } else {
-      showSection('norr3-campaign-setup');
-      document.getElementById('norr3-user-management-btn').style.display = 'none';
-      document.getElementById('norr3-back-button').style.display = 'none';
-      // Load cached campaigns if they exist, otherwise show "No campaigns found"
-      const list = document.getElementById('norr3-campaign-list');
-      if (cachedCampaigns.length > 0) {
-        list.innerHTML = '';
-        cachedCampaigns.forEach(camp => {
-          const displayId = camp.id.length > 4 ? camp.id.slice(-4) : camp.id;
-          const totalBudget = Object.values(camp.budget).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
-          const row = document.createElement('div');
-          row.className = `norr3-table-row ${!camp.status ? 'norr3-row-off' : ''}`;
-          row.setAttribute('role', 'row');
-          row.innerHTML = `
-            <span role="cell">${displayId}</span>
-            <span role="cell">${camp.agent_name || 'Unknown Agent'}</span>
-            <span role="cell">${(camp.apartments || []).map(a => a.key).join(', ') || 'None'}</span>
-            <span role="cell">${formatDate(camp.start_date)}</span>
-            <span role="cell">${camp.end_date ? formatDate(camp.end_date) : translations[currentLanguage].ongoing}</span>
-            <span role="cell">
-              ${camp.channels.includes('meta') ? '<i class="fab fa-facebook" title="Meta"></i>' : ''}
-              ${camp.channels.includes('display') ? '<i class="fas fa-desktop" title="Display"></i>' : ''}
-              ${camp.channels.includes('pdooh') ? '<i class="fas fa-sign" title="PDOOH"></i>' : ''}
-            </span>
-            <span role="cell">${totalBudget.toFixed(2)}€</span>
-            <span role="cell">
-              <label class="norr3-toggle-slider">
-                <input type="checkbox" ${camp.status ? 'checked' : ''} onchange="norr3ToggleStatus('${camp.id}', this.checked)"/>
-                <span class="norr3-slider"></span>
-              </label>
-            </span>
-            <span role="cell">
-              <i class="fas fa-info-circle norr3-info-icon" onclick="norr3ShowCampaignInfo('${camp.id}')" tabindex="0"></i>
-            </span>
-          `;
-          list.appendChild(row);
-        });
-        norr3UpdateMetrics();
-        norr3CheckNotifications();
-      } else {
-        list.innerHTML = `<p role="status">${translations[currentLanguage].noCampaigns}</p>`;
+    try {
+      // Decode and validate the token to ensure it’s valid
+      const decoded = jwtDecode(token);
+      if (!decoded || !decoded.email || !decoded.role) {
+        throw new Error('Invalid token format');
       }
+      localStorage.setItem('token', token);
+      localStorage.setItem('norr3LoggedIn', 'true');
+      localStorage.setItem('role', 'admin'); // Force admin role for Google login
+      localStorage.setItem('partnerName', 'Kiinteistömaailma Helsinki'); // Default for Google login
+      localStorage.setItem('email', decoded.email);
+      localStorage.setItem('agentEmail', decoded.email);
+      localStorage.setItem('agentKey', decoded.agentKey || '1160ska'); // Default agentKey if not provided
+      document.getElementById('norr3-container').style.display = 'block';
+      if (localStorage.getItem('role') === 'admin') {
+        showSection('norr3-service-selection');
+        document.getElementById('norr3-user-management-btn').style.display = 'inline-block';
+        document.getElementById('norr3-back-button').style.display = 'inline-block';
+      } else {
+        showSection('norr3-campaign-setup');
+        document.getElementById('norr3-user-management-btn').style.display = 'none';
+        document.getElementById('norr3-back-button').style.display = 'none';
+        // Load cached campaigns if they exist, otherwise show "No campaigns found"
+        const list = document.getElementById('norr3-campaign-list');
+        if (cachedCampaigns.length > 0) {
+          list.innerHTML = '';
+          cachedCampaigns.forEach(camp => {
+            const displayId = camp.id.length > 4 ? camp.id.slice(-4) : camp.id;
+            const totalBudget = Object.values(camp.budget).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+            const row = document.createElement('div');
+            row.className = `norr3-table-row ${!camp.status ? 'norr3-row-off' : ''}`;
+            row.setAttribute('role', 'row');
+            row.innerHTML = `
+              <span role="cell">${displayId}</span>
+              <span role="cell">${camp.agent_name || 'Unknown Agent'}</span>
+              <span role="cell">${(camp.apartments || []).map(a => a.key).join(', ') || 'None'}</span>
+              <span role="cell">${formatDate(camp.start_date)}</span>
+              <span role="cell">${camp.end_date ? formatDate(camp.end_date) : translations[currentLanguage].ongoing}</span>
+              <span role="cell">
+                ${camp.channels.includes('meta') ? '<i class="fab fa-facebook" title="Meta"></i>' : ''}
+                ${camp.channels.includes('display') ? '<i class="fas fa-desktop" title="Display"></i>' : ''}
+                ${camp.channels.includes('pdooh') ? '<i class="fas fa-sign" title="PDOOH"></i>' : ''}
+              </span>
+              <span role="cell">${totalBudget.toFixed(2)}€</span>
+              <span role="cell">
+                <label class="norr3-toggle-slider">
+                  <input type="checkbox" ${camp.status ? 'checked' : ''} onchange="norr3ToggleStatus('${camp.id}', this.checked)"/>
+                  <span class="norr3-slider"></span>
+                </label>
+              </span>
+              <span role="cell">
+                <i class="fas fa-info-circle norr3-info-icon" onclick="norr3ShowCampaignInfo('${camp.id}')" tabindex="0"></i>
+              </span>
+            `;
+            list.appendChild(row);
+          });
+          norr3UpdateMetrics();
+          norr3CheckNotifications();
+        } else {
+          list.innerHTML = `<p role="status">${translations[currentLanguage].noCampaigns}</p>`;
+        }
+      }
+    } catch (err) {
+      showAlert('Invalid Google login token: ' + err.message);
+      localStorage.clear();
+      showSection('norr3-login-section');
     }
   } else if (localStorage.getItem('norr3LoggedIn') === 'true') {
     document.getElementById('norr3-container').style.display = 'block';
@@ -1300,6 +1518,14 @@ async function norr3EditUser() {
   }
 }
 
+function norr3UserManagement() {
+  showSection('norr3-user-management');
+  const backButton = document.getElementById('norr3-back-button');
+  if (backButton) {
+    backButton.style.display = 'inline-block'; // Show back button only in user management
+  }
+}
+
 async function norr3RenderUsers() {
   const token = localStorage.getItem('token');
   if (!token || localStorage.getItem('role') !== 'admin') return;
@@ -1308,8 +1534,27 @@ async function norr3RenderUsers() {
     const res = await fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } });
     if (!res.ok) throw new Error('Failed to load users');
     const users = await res.json();
+    const userManagementDiv = document.getElementById('norr3-user-management');
     const list = document.getElementById('norr3-user-list');
     list.innerHTML = '';
+
+    // Ensure the "Back" button exists and is visible
+    if (userManagementDiv) {
+      let backButton = userManagementDiv.querySelector('#norr3-back-button');
+      if (!backButton) {
+        backButton = document.createElement('button');
+        backButton.id = 'norr3-back-button';
+        backButton.className = 'norr3-btn-primary';
+        backButton.setAttribute('data-translate', 'back');
+        backButton.setAttribute('onclick', 'norr3GoBack()');
+        backButton.textContent = translations[currentLanguage].back;
+        backButton.style.display = 'inline-block';
+        userManagementDiv.insertBefore(backButton, userManagementDiv.firstChild); // Add at the top
+      } else {
+        backButton.style.display = 'inline-block';
+      }
+    }
+
     users.forEach(u => {
       const row = document.createElement('div');
       row.className = 'norr3-user-item';
@@ -1319,7 +1564,7 @@ async function norr3RenderUsers() {
         <span>${u.agentName || 'Unknown Agent'}</span>
         <span>${u.agentKey || 'Unknown Key'}</span>
         <img src="${u.agentImage || 'https://via.placeholder.com/50'}" alt="${u.agentName || 'Agent'}" loading="lazy">
-        <button onclick="norr3RemoveUser('${u.email}')" class="norr3-btn-primary">Remove</button>
+        <button onclick="norr3RemoveUser('${u.email}')" class="norr3-btn-primary" data-translate="remove">Remove</button>
       `;
       list.appendChild(row);
     });
@@ -1330,8 +1575,46 @@ async function norr3RenderUsers() {
   }
 }
 
+// Ensure back button is hidden in other sections (update window.onload or showSection)
+function showSection(sectionId) {
+  document.querySelectorAll('.norr3-fade-in').forEach(sec => sec.style.display = 'none');
+  const sec = document.getElementById(sectionId);
+  if (sec) sec.style.display = 'block';
+
+  // Manage "Back" button dynamically
+  const backButton = document.getElementById('norr3-back-button');
+  if (backButton) {
+    backButton.style.display = 'none'; // Hide by default
+    if (sectionId === 'norr3-user-management') {
+      backButton.style.display = 'inline-block'; // Show only in user management
+    }
+  }
+
+  if (sectionId === 'norr3-campaign-setup' && !localStorage.getItem('token')) {
+    showAlert(translations[currentLanguage].pleaseLogin);
+  }
+}
+
 function norr3UserManagement() {
   showSection('norr3-user-management');
+  const userManagementDiv = document.getElementById('norr3-user-management');
+  if (userManagementDiv) {
+    // Remove any existing back button to avoid duplicates
+    const existingBackButton = userManagementDiv.querySelector('#norr3-back-button');
+    if (existingBackButton) {
+      existingBackButton.remove();
+    }
+
+    // Create and append the "Back" button
+    const backButton = document.createElement('button');
+    backButton.id = 'norr3-back-button';
+    backButton.className = 'norr3-btn-primary';
+    backButton.setAttribute('data-translate', 'back');
+    backButton.setAttribute('onclick', 'norr3GoBack()');
+    backButton.textContent = translations[currentLanguage].back;
+    backButton.style.display = 'inline-block';
+    userManagementDiv.insertBefore(backButton, userManagementDiv.firstChild); // Add at the top
+  }
 }
 
 function jwtDecode(token) {
@@ -1422,4 +1705,203 @@ window.onload = function() {
   if (localStorage.getItem('role') === 'admin') {
     norr3RenderUsers();
   }
+// Populate user filter with registered emails
+async function populateFilters() {
+  const token = localStorage.getItem('token');
+  if (!token || localStorage.getItem('role') !== 'admin') return;
+
+  try {
+    const res = await fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) throw new Error('Failed to load users');
+    const users = await res.json();
+    const userSelect = document.getElementById('norr3-filter-user');
+    users.forEach(u => {
+      const option = document.createElement('option');
+      option.value = u.agentKey || '';
+      option.textContent = u.email || 'Unknown User';
+      userSelect.appendChild(option);
+    });
+
+    // Populate city filter with unique cities from campaigns (fetch once for admin)
+    const campRes = await fetch('/api/campaigns', { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!campRes.ok) throw new Error('Failed to load campaigns');
+    const campaigns = await campRes.json();
+    const citySelect = document.getElementById('norr3-filter-city');
+    const uniqueCities = [...new Set(campaigns.map(c => c.city).filter(c => c && c.trim()))];
+    uniqueCities.forEach(city => {
+      const option = document.createElement('option');
+      option.value = city.toLowerCase();
+      option.textContent = city;
+      citySelect.appendChild(option);
+    });
+  } catch (err) {
+    console.error('Error populating filters:', err);
+  }
+}
+
+// Call populateFilters in window.onload after user checks
+window.onload = function() {
+  // ... (keep existing code up to filter setup)
+  setLanguage(currentLanguage);
+  const urlParams = new URLSearchParams(window.location.search);
+  const token = urlParams.get('token');
+  const service = urlParams.get('service');
+  if (token) {
+    try {
+      // Decode and validate the token to ensure it’s valid
+      const decoded = jwtDecode(token);
+      if (!decoded || !decoded.email || !decoded.role) {
+        throw new Error('Invalid token format');
+      }
+      localStorage.setItem('token', token);
+      localStorage.setItem('norr3LoggedIn', 'true');
+      localStorage.setItem('role', 'admin'); // Force admin role for Google login
+      localStorage.setItem('partnerName', 'Kiinteistömaailma Helsinki'); // Default for Google login
+      localStorage.setItem('email', decoded.email);
+      localStorage.setItem('agentEmail', decoded.email);
+      localStorage.setItem('agentKey', decoded.agentKey || '1160ska'); // Default agentKey if not provided
+      document.getElementById('norr3-container').style.display = 'block';
+      if (localStorage.getItem('role') === 'admin') {
+        showSection('norr3-service-selection');
+        document.getElementById('norr3-user-management-btn').style.display = 'inline-block';
+        document.getElementById('norr3-back-button').style.display = 'inline-block';
+      } else {
+        showSection('norr3-campaign-setup');
+        document.getElementById('norr3-user-management-btn').style.display = 'none';
+        document.getElementById('norr3-back-button').style.display = 'none';
+        // Load cached campaigns if they exist, otherwise show "No campaigns found"
+        const list = document.getElementById('norr3-campaign-list');
+        if (cachedCampaigns.length > 0) {
+          list.innerHTML = '';
+          cachedCampaigns.forEach(camp => {
+            const displayId = camp.id.length > 4 ? camp.id.slice(-4) : camp.id;
+            const totalBudget = Object.values(camp.budget).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+            const row = document.createElement('div');
+            row.className = `norr3-table-row ${!camp.status ? 'norr3-row-off' : ''}`;
+            row.setAttribute('role', 'row');
+            row.innerHTML = `
+              <span role="cell">${displayId}</span>
+              <span role="cell">${camp.agent_name || 'Unknown Agent'}</span>
+              <span role="cell">${(camp.apartments || []).map(a => a.key).join(', ') || 'None'}</span>
+              <span role="cell">${formatDate(camp.start_date)}</span>
+              <span role="cell">${camp.end_date ? formatDate(camp.end_date) : translations[currentLanguage].ongoing}</span>
+              <span role="cell">
+                ${camp.channels.includes('meta') ? '<i class="fab fa-facebook" title="Meta"></i>' : ''}
+                ${camp.channels.includes('display') ? '<i class="fas fa-desktop" title="Display"></i>' : ''}
+                ${camp.channels.includes('pdooh') ? '<i class="fas fa-sign" title="PDOOH"></i>' : ''}
+              </span>
+              <span role="cell">${totalBudget.toFixed(2)}€</span>
+              <span role="cell">
+                <label class="norr3-toggle-slider">
+                  <input type="checkbox" ${camp.status ? 'checked' : ''} onchange="norr3ToggleStatus('${camp.id}', this.checked)"/>
+                  <span class="norr3-slider"></span>
+                </label>
+              </span>
+              <span role="cell">
+                <i class="fas fa-info-circle norr3-info-icon" onclick="norr3ShowCampaignInfo('${camp.id}')" tabindex="0"></i>
+              </span>
+            `;
+            list.appendChild(row);
+          });
+          norr3UpdateMetrics();
+          norr3CheckNotifications();
+        } else {
+          list.innerHTML = `<p role="status">${translations[currentLanguage].noCampaigns}</p>`;
+        }
+      }
+    } catch (err) {
+      showAlert('Invalid Google login token: ' + err.message);
+      localStorage.clear();
+      showSection('norr3-login-section');
+    }
+  } else if (localStorage.getItem('norr3LoggedIn') === 'true') {
+    document.getElementById('norr3-container').style.display = 'block';
+    const page = localStorage.getItem('norr3Page') || 'campaign-setup';
+    if (localStorage.getItem('role') === 'admin') {
+      showSection(page === 'campaign-setup' ? 'norr3-campaign-setup' : 'norr3-service-selection');
+      document.getElementById('norr3-user-management-btn').style.display = 'inline-block';
+      document.getElementById('norr3-back-button').style.display = 'inline-block';
+    } else {
+      showSection('norr3-campaign-setup');
+      document.getElementById('norr3-user-management-btn').style.display = 'none';
+      document.getElementById('norr3-back-button').style.display = 'none';
+      // Load cached campaigns if they exist, otherwise show "No campaigns found"
+      const list = document.getElementById('norr3-campaign-list');
+      if (cachedCampaigns.length > 0) {
+        list.innerHTML = '';
+        cachedCampaigns.forEach(camp => {
+          const displayId = camp.id.length > 4 ? camp.id.slice(-4) : camp.id;
+          const totalBudget = Object.values(camp.budget).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+          const row = document.createElement('div');
+          row.className = `norr3-table-row ${!camp.status ? 'norr3-row-off' : ''}`;
+          row.setAttribute('role', 'row');
+          row.innerHTML = `
+            <span role="cell">${displayId}</span>
+            <span role="cell">${camp.agent_name || 'Unknown Agent'}</span>
+            <span role="cell">${(camp.apartments || []).map(a => a.key).join(', ') || 'None'}</span>
+            <span role="cell">${formatDate(camp.start_date)}</span>
+            <span role="cell">${camp.end_date ? formatDate(camp.end_date) : translations[currentLanguage].ongoing}</span>
+            <span role="cell">
+              ${camp.channels.includes('meta') ? '<i class="fab fa-facebook" title="Meta"></i>' : ''}
+              ${camp.channels.includes('display') ? '<i class="fas fa-desktop" title="Display"></i>' : ''}
+              ${camp.channels.includes('pdooh') ? '<i class="fas fa-sign" title="PDOOH"></i>' : ''}
+            </span>
+            <span role="cell">${totalBudget.toFixed(2)}€</span>
+            <span role="cell">
+              <label class="norr3-toggle-slider">
+                <input type="checkbox" ${camp.status ? 'checked' : ''} onchange="norr3ToggleStatus('${camp.id}', this.checked)"/>
+                <span class="norr3-slider"></span>
+              </label>
+            </span>
+            <span role="cell">
+              <i class="fas fa-info-circle norr3-info-icon" onclick="norr3ShowCampaignInfo('${camp.id}')" tabindex="0"></i>
+            </span>
+          `;
+          list.appendChild(row);
+        });
+        norr3UpdateMetrics();
+        norr3CheckNotifications();
+      } else {
+        list.innerHTML = `<p role="status">${translations[currentLanguage].noCampaigns}</p>`;
+      }
+    }
+  } else {
+    showSection('norr3-login-section');
+    if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+      showAlert(translations[currentLanguage].pleaseLogin);
+    }
+  }
+  // Add filter event listeners
+  document.getElementById('norr3-filter-user').addEventListener('change', norr3FetchCampaigns);
+  document.getElementById('norr3-filter-agency').addEventListener('change', norr3FetchCampaigns);
+  document.getElementById('norr3-filter-channel').addEventListener('change', norr3FetchCampaigns);
+  document.getElementById('norr3-filter-city').addEventListener('change', norr3FetchCampaigns);
+  document.getElementById('norr3-filter-active').addEventListener('change', norr3FetchCampaigns);
+  document.getElementById('norr3-search-campaigns').addEventListener('input', norr3FetchCampaigns);
+  document.getElementById('norr3-filter-status').addEventListener('change', norr3FetchCampaigns);
+  document.querySelector('.norr3-notification').addEventListener('keypress', e => {
+    if (e.key === 'Enter' || e.key === ' ') norr3ShowNotifications();
+  });
+  if (localStorage.getItem('role') === 'admin') {
+    norr3RenderUsers();
+    populateFilters(); // Populate filters for admin
+  }
+
+  // Clear cached campaigns on logout or page close
+  window.addEventListener('unload', () => {
+    cachedCampaigns = [];
+  });
+  norr3Logout = function() {
+    showLoadingScreen(true);
+    cachedCampaigns = []; // Clear campaigns on logout
+    localStorage.removeItem('cachedCampaigns'); // Explicitly remove from localStorage
+    localStorage.clear();
+    document.getElementById('norr3-container').style.display = 'none';
+    showSection('norr3-login-section');
+    document.getElementById('norr3-email').value = '';
+    document.getElementById('norr3-password').value = '';
+    showLoadingScreen(false);
+  };
+}
+
 };
