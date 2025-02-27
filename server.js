@@ -73,44 +73,83 @@ async function refreshGoogleToken() {
   Function: syncToSheets
   - Syncs campaigns to Google Sheets (LIVE sheet), handling one row per campaign with consolidated apartment data.
 */
+/*
+  Function: syncToSheets
+  - Syncs campaigns to Google Sheets (LIVE sheet), updating existing rows with the same campaign_id or appending new rows.
+*/
 async function syncToSheets(data) {
   try {
     const token = await refreshGoogleToken();
-    const rows = data.map(item => [
-      item.campaign_id || '',
-      item.partner_id || '',
-      item.partner_name || '',
-      item.agent || '',
-      item.agent_key || '',
-      (item.apartments || []).map(a => a.key).join(', ') || '',
-      (item.apartments || []).map(a => `https://www.kiinteistomaailma.fi/${a.key}`).join(', ') || '',
-      item.campaign_address || '',
-      item.campaign_postal_code || '',
-      item.campaign_city || '',
-      item.campaign_radius || 0,
-      item.channel_meta || 0,
-      item.channel_display || 0,
-      item.channel_pdooh || 0,
-      (item.budget_meta || 0).toString(),
-      (item.budget_meta_daily || 0).toString(),
-      (item.budget_display || 0).toString(),
-      (item.budget_display_daily || 0).toString(),
-      (item.budget_pdooh || 0).toString(),
-      (item.budget_pdooh_daily || 0).toString(),
-      item.campaign_start_date || '',
-      item.campaign_end_date || '',
-      item.active ? '1' : '0'
-    ]);
-    await axios.post(
-      `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_ID}/values/LIVE!A1:append?valueInputOption=RAW`,
-      { values: rows },
+    
+    // Fetch current data from the sheet to find the row with the campaign_id
+    const sheetResponse = await axios.get(
+      `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_ID}/values/LIVE!A1:Z`,
       { headers: { 'Authorization': `Bearer ${token}` } }
     );
+    const rows = sheetResponse.data.values || [];
+    const headers = rows[0] || []; // Assume the first row is headers
+    const dataRows = rows.slice(1); // Data rows (excluding headers)
+
+    // Prepare the new data for each campaign in the input
+    for (const item of data) {
+      const campaignIdIndex = headers.indexOf('campaign_id');
+      if (campaignIdIndex === -1) throw new Error('campaign_id column not found in sheet');
+
+      // Find the row index with the matching campaign_id
+      let rowIndex = -1;
+      for (let i = 0; i < dataRows.length; i++) {
+        if (dataRows[i][campaignIdIndex] === item.campaign_id) {
+          rowIndex = i + 2; // +2 because slice(1) skips header, and 1-based indexing in Sheets
+          break;
+        }
+      }
+
+      const rowData = [
+        item.campaign_id || '',
+        item.partner_id || '',
+        item.partner_name || '',
+        item.agent || '',
+        item.agent_key || '',
+        (item.apartments || []).map(a => a.key).join(', ') || '',
+        (item.apartments || []).map(a => `https://www.kiinteistomaailma.fi/${a.key}`).join(', ') || '',
+        item.campaign_address || '',
+        item.campaign_postal_code || '',
+        item.campaign_city || '',
+        item.campaign_radius || 0,
+        item.channel_meta || 0,
+        item.channel_display || 0,
+        item.channel_pdooh || 0,
+        (item.budget_meta || 0).toString(),
+        (item.budget_meta_daily || 0).toString(),
+        (item.budget_display || 0).toString(),
+        (item.budget_display_daily || 0).toString(),
+        (item.budget_pdooh || 0).toString(),
+        (item.budget_pdooh_daily || 0).toString(),
+        item.campaign_start_date || '',
+        item.campaign_end_date || '',
+        item.active ? '1' : '0'
+      ];
+
+      if (rowIndex !== -1) {
+        // Update existing row
+        await axios.put(
+          `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_ID}/values/LIVE!A${rowIndex}:Z${rowIndex}?valueInputOption=RAW`,
+          { values: [rowData] },
+          { headers: { 'Authorization': `Bearer ${token}` } }
+        );
+      } else {
+        // Append new row if not found
+        await axios.post(
+          `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_ID}/values/LIVE!A1:append?valueInputOption=RAW`,
+          { values: [rowData] },
+          { headers: { 'Authorization': `Bearer ${token}` } }
+        );
+      }
+    }
   } catch (error) {
     throw new Error('Failed to sync campaigns to Google Sheets: ' + error.message);
   }
 }
-
 /*
   Function: fetchFromSheets
   - Fetches campaigns from Google Sheets (LIVE sheet), handling one row per campaign with consolidated apartment data.
@@ -191,23 +230,23 @@ app.get('/api/apartments', async (req, res) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
   try {
-    const response = await axios.get(JSON_FEED_URL, { headers: { 'Cache-Control': 'no-cache' } });
+    const response = await axios.get('https://vilpas.kiinteistomaailma.fi/export/km/listings/baseline.json', { 
+      headers: { 'Cache-Control': 'no-cache' } 
+    });
     const mapped = response.data.map(apt => ({
-      key: apt.key || '',
+      key: apt.key || '', // Ensure this matches the numeric "key" in the JSON
       agencyEmail: apt.agencyEmail || '',
       address: apt.address || '',
       postcode: apt.postcode || '',
       city: apt.city || '',
-      images: apt.images || [],
-      agentEmail: apt.agent?.email?.toLowerCase().trim() || ''
+      images: apt.images || [], // Array of objects with url and type
+      agentEmail: apt.agent?.email?.toLowerCase().trim() || '' // Extract agent email if exists
     }));
     res.json(mapped);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch apartments: ' + err.message });
   }
-});
-
-/*
+});/*
   Campaigns endpoints using in-memory storage and Google Sheets, handling one row per campaign with consolidated apartment data.
 */
 app.get('/api/campaigns', async (req, res) => {
@@ -275,7 +314,7 @@ app.post('/api/campaigns', async (req, res) => {
       budget_pdooh_daily: campaign.budget_pdooh_daily || (campaign.budget_pdooh / 30).toFixed(2)
     };
     campaigns.push(newCampaign);
-    await syncToSheets([newCampaign]);
+    await syncToSheets([newCampaign]); // Sync the new campaign
     res.json(newCampaign);
   } catch (error) {
     res.status(500).json({ error: 'Failed to create campaign: ' + error.message });
@@ -324,7 +363,7 @@ app.put('/api/campaigns/:campaignId', async (req, res) => {
       budget_display_daily: (campaign.budget_display || campaigns[index].budget_display) / days || 0,
       budget_pdooh_daily: (campaign.budget_pdooh || campaigns[index].budget_pdooh) / days || 0
     };
-    await syncToSheets([campaigns[index]]);
+    await syncToSheets([campaigns[index]]); // Sync the updated campaign
     res.json(campaigns[index]);
   } catch (error) {
     res.status(500).json({ error: 'Failed to update campaign: ' + error.message });
@@ -343,7 +382,7 @@ app.patch('/api/campaigns/status/:campaignId', async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized access' });
     }
     campaigns[index].active = req.body.active === true;
-    await syncToSheets([campaigns[index]]);
+    await syncToSheets([campaigns[index]]); // Sync the updated campaign
     res.json(campaigns[index]);
   } catch (error) {
     res.status(500).json({ error: 'Failed to update campaign status: ' + error.message });
