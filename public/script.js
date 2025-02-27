@@ -233,6 +233,8 @@ async function norr3FetchUsers() {
     const res = await fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } });
     if (!res.ok) throw new Error(translations[currentLanguage].failedLoadUsers);
     cachedUsers = await res.json();
+  } catch (err) {
+    showAlert('Failed to fetch users: ' + err.message);
   } finally {
     showLoadingScreen(false);
   }
@@ -374,6 +376,64 @@ async function norr3CreateCampaign() {
   } else {
     document.getElementById('norr3-agent-section').style.display = 'none';
     document.getElementById('norr3-campaign-budget-section').style.display = 'none';
+    // Automatically fetch apartments for the agent's email
+    const agentEmail = localStorage.getItem('agentEmail') || '';
+    if (agentEmail) {
+      await norr3LoadApartmentsForAgent(agentEmail);
+    }
+  }
+}
+
+async function norr3LoadApartmentsForAgent(agentEmail) {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    showAlert(translations[currentLanguage].pleaseLogin);
+    return;
+  }
+  const loadBtnText = document.getElementById('norr3-load-apartments-text');
+  const loadBtnIcon = document.getElementById('norr3-load-apartments-icon');
+  loadBtnText.style.display = 'none';
+  loadBtnIcon.className = 'fas fa-spinner fa-spin';
+  loadBtnIcon.style.display = 'inline-block';
+  try {
+    const res = await fetch('/api/apartments', { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) throw new Error(await res.text());
+    allApartments = await res.json();
+    const filtered = allApartments.filter(a => 
+      (a.agentEmail || a.agencyEmail || '').toLowerCase().trim() === agentEmail.toLowerCase().trim()
+    );
+    const table = document.getElementById('norr3-apartments-table');
+    if (!filtered.length) {
+      showAlert(translations[currentLanguage].noApartments);
+      table.innerHTML = `<p>No apartments found.</p>`;
+    } else {
+      table.innerHTML = '';
+      filtered.forEach(apt => {
+        const row = document.createElement('div');
+        row.className = 'norr3-apartment-row';
+        row.innerHTML = `
+          <input type="checkbox" class="norr3-apartment-checkbox" data-key="${apt.key}" onchange="norr3ToggleApartmentSelection(event)" />
+          <img src="${getThumbnailUrl(apt)}" alt="${apt.address || 'Apartment'}" style="width:50px; height:auto;" loading="lazy">
+          <div>
+            <div>${apt.address || ''}, ${apt.postcode || ''} ${apt.city || ''}</div>
+            <div>
+              <label>Radius:
+                <input type="number" class="norr3-apartment-radius" data-key="${apt.key}" placeholder="Radius (meters)" disabled style="opacity:0.5;" onchange="norr3UpdateApartmentRadius(event)" />
+              </label>
+            </div>
+          </div>
+          <i class="fas fa-info-circle norr3-info-icon" onclick="norr3ShowApartmentInfo('${apt.key}')" tabindex="0" aria-label="View apartment details"></i>
+          <a href="https://www.kiinteistomaailma.fi/${apt.key}" target="_blank"><i class="fas fa-link"></i></a>
+        `;
+        table.appendChild(row);
+      });
+    }
+  } catch (err) {
+    showAlert('Failed to load apartments: ' + err.message);
+  } finally {
+    loadBtnIcon.style.display = 'none';
+    loadBtnText.style.display = 'inline-block';
+    loadBtnText.textContent = 'Load Apartments';
   }
 }
 
@@ -423,6 +483,8 @@ async function norr3EditCampaign(id) {
       // Pre-fill agent email if it exists in the campaign
       const agentEmail = allApartments.find(a => a.agentEmail === campaign.agent_key)?.agentEmail || '';
       document.getElementById('norr3-create-agent-email').value = agentEmail;
+    } else {
+      norr3RenderSelectedApartments();
     }
   } catch (err) {
     showAlert('Failed to load campaign for editing: ' + err.message);
@@ -606,7 +668,7 @@ function norr3RenderSelectedApartments() {
       <input type="checkbox" class="norr3-apartment-checkbox" data-key="${ap.key}" checked onchange="norr3ToggleApartmentSelection(event)" />
       <img src="${getThumbnailUrl(apt)}" alt="${apt.address || 'Apartment'}" style="width:50px; height:auto;" loading="lazy">
       <span>${apt.address || ''}, ${apt.postcode || ''} ${apt.city || ''}</span>
-      <i class="fas fa-info-circle norr3-info-icon" onclick="norr3ShowApartmentInfo('${ap.key}')" tabindex="0"></i>
+      <i class="fas fa-info-circle norr3-info-icon" onclick="norr3ShowApartmentInfo('${ap.key}')" tabindex="0" aria-label="View apartment details"></i>
       <a href="https://www.kiinteistomaailma.fi/${ap.key}" target="_blank"><i class="fas fa-link"></i></a>
       <input type="number" class="norr3-apartment-radius" data-key="${ap.key}" value="${ap.radius}" placeholder="Radius (meters)" onchange="norr3UpdateApartmentRadius(event)" />
     `;
@@ -639,7 +701,7 @@ async function norr3LoadApartments() {
     if (!res.ok) throw new Error(await res.text());
     allApartments = await res.json();
     const filtered = allApartments.filter(a => 
-      (a.agentEmail || a.agencyEmail || '').toLowerCase().trim() === agentEmail
+      (a.agentEmail || a.agencyEmail || '').toLowerCase().trim() === agentEmail.toLowerCase().trim()
     );
     const table = document.getElementById('norr3-apartments-table');
     if (!filtered.length) {
@@ -661,7 +723,7 @@ async function norr3LoadApartments() {
               </label>
             </div>
           </div>
-          <i class="fas fa-info-circle norr3-info-icon" onclick="norr3ShowApartmentInfo('${apt.key}')" tabindex="0"></i>
+          <i class="fas fa-info-circle norr3-info-icon" onclick="norr3ShowApartmentInfo('${apt.key}')" tabindex="0" aria-label="View apartment details"></i>
           <a href="https://www.kiinteistomaailma.fi/${apt.key}" target="_blank"><i class="fas fa-link"></i></a>
         `;
         table.appendChild(row);
@@ -700,6 +762,45 @@ function norr3UpdateApartmentRadius(e) {
   if (apt) {
     apt.radius = parseInt(input.value) || 1500;
   }
+}
+
+// --- Apartment Info Popup --- //
+
+async function norr3ShowApartmentInfo(key) {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    showAlert(translations[currentLanguage].pleaseLogin);
+    return;
+  }
+  showLoadingScreen(true);
+  try {
+    const apt = allApartments.find(a => a.key === key);
+    if (!apt) throw new Error('Apartment not found');
+    document.getElementById('norr3-apartment-info-modal').style.display = 'flex';
+    const info = document.getElementById('norr3-apartment-info');
+    const images = apt.images || [];
+    const imageSlider = images.map(img => `
+      <img src="${img.url || 'https://via.placeholder.com/400'}" alt="${apt.address || 'Apartment Image'}" style="max-height: 400px; width: auto; margin: 5px;" loading="lazy">
+    `).join('');
+    info.innerHTML = `
+      <h4>Apartment Details</h4>
+      <p><strong>Address:</strong> ${apt.address || ''}</p>
+      <p><strong>Postal Code:</strong> ${apt.postcode || ''}</p>
+      <p><strong>City:</strong> ${apt.city || ''}</p>
+      <div class="norr3-image-slider" style="overflow-x: auto; white-space: nowrap;">
+        ${imageSlider}
+      </div>
+    `;
+  } catch (err) {
+    console.error('Error loading apartment details:', err);
+    showAlert('Failed to load apartment details: ' + err.message);
+  } finally {
+    showLoadingScreen(false);
+  }
+}
+
+function norr3CloseApartmentInfoModal(event) {
+  document.getElementById('norr3-apartment-info-modal').style.display = 'none';
 }
 
 // --- User Management Functions --- //
@@ -939,14 +1040,6 @@ function norr3ShowNotifications() {
   console.warn('norr3ShowNotifications is not implemented');
 }
 
-function norr3CloseApartmentInfoModal(event) {
-  document.getElementById('norr3-apartment-info-modal').style.display = 'none';
-}
-
-function norr3CloseNotificationModal(event) {
-  document.getElementById('norr3-notification-modal').style.display = 'none';
-}
-
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.norr3-modal').forEach(modal => {
     modal.addEventListener('click', e => {
@@ -1004,6 +1097,9 @@ window.onload = function() {
       document.getElementById('norr3-back-button').style.display = 'none';
       const list = document.getElementById('norr3-campaign-list');
       list.innerHTML = `<p role="status">${translations[currentLanguage].noCampaigns}</p>`;
+      const buttonContainer = document.createElement('div');
+      buttonContainer.className = 'norr3-fetch-button';
+      buttonContainer.innerHTML = `<button class="norr3-btn-primary" onclick="norr3FetchCampaigns()" data-translate="fetchCampaigns">${translations[currentLanguage].fetchCampaigns}</button>`;
       list.parentNode.insertBefore(buttonContainer, list);
     }
     norr3FetchUsers(); // Fetch initial users from server in-memory

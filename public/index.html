@@ -263,12 +263,10 @@
       </div>
     </div>
     
-    <!-- Apartment Info Modal -->
-    <div id="norr3-apartment-info-modal" class="norr3-modal" style="display: none;" role="dialog" aria-label="Apartment Details">
-      <div class="norr3-modal-content norr3-slide-in">
-        <button class="norr3-close-btn" onclick="norr3CloseApartmentInfoModal(event)" aria-label="Close modal">×</button>
-        <h3 class="norr3-h3" data-translate="apartmentDetails" role="heading" aria-level="3">Apartment Details</h3>
-        <div id="norr3-apartment-info" class="norr3-apartment-info" role="region" aria-label="Apartment Information"></div>
+    <div id="norr3-apartment-info-modal" class="norr3-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+      <div style="background: white; margin: 5% auto; padding: 20px; width: 80%; max-width: 600px; border-radius: 5px;">
+        <div id="norr3-apartment-info"></div>
+        <button onclick="norr3CloseApartmentInfoModal(event)" class="norr3-btn-primary" style="margin-top: 10px;">Close</button>
       </div>
     </div>
     

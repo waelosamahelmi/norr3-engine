@@ -24,7 +24,7 @@ let campaigns = []; // In-memory campaigns (synced with Google Sheets)
 let users = [
   {
     email: 'seppo.kairikko@kiinteistomaailma.fi',
-    password: bcrypt.hashSync('defaultPassword123', 10), // Hashed password
+    password: bcrypt.hashSync('password123', 10), // Hashed password
     partnerName: 'Kiinteistömaailma Helsinki',
     agentName: 'Seppo Kairikko',
     agentKey: '1160ska',
@@ -33,7 +33,7 @@ let users = [
   },
   {
     email: 'admin@norr3.fi',
-    password: bcrypt.hashSync('adminPassword123', 10), // Hashed password
+    password: bcrypt.hashSync('Admin123', 10), // Hashed password
     partnerName: 'NØRR3',
     agentName: 'Admin User',
     agentKey: 'admin123',
