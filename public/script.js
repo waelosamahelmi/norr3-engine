@@ -974,10 +974,6 @@ window.onload = function() {
       document.getElementById('norr3-back-button').style.display = 'none';
       const list = document.getElementById('norr3-campaign-list');
       list.innerHTML = `<p role="status">${translations[currentLanguage].noCampaigns}</p>`;
-      const buttonContainer = document.createElement('div');
-      buttonContainer.className = 'norr3-fetch-button';
-      buttonContainer.innerHTML = `<button class="norr3-btn-primary" onclick="norr3FetchCampaigns()" data-translate="fetchCampaigns">${translations[currentLanguage].fetchCampaigns}</button>`;
-      list.parentNode.insertBefore(buttonContainer, list);
     }
     norr3FetchUsers(); // Fetch initial users from server in-memory
     norr3FetchCampaigns(); // Fetch initial campaigns from Sheets
