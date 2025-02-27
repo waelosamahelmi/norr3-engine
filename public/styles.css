@@ -425,6 +425,7 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   cursor: pointer;
   transition: color 0.3s ease;
 }
+
 .norr3-close-btn:hover,
 .norr3-close-btn:focus {
   color: #ba68c8;
@@ -545,6 +546,19 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   font-size: 20px;
 }
 .norr3-loading-screen i {
+  font-size: 30px;
+  margin-right: 10px;
+}
+
+/* Loading Spinner for Apartments */
+.norr3-loading-spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #6a1b9a;
+  font-size: 20px;
+}
+.norr3-loading-spinner i {
   font-size: 30px;
   margin-right: 10px;
 }
