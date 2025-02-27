@@ -150,7 +150,7 @@ async function norr3ManualLogin() {
       const data = await res.json();
       localStorage.setItem('token', data.token);
       localStorage.setItem('norr3LoggedIn', 'true');
-      localStorage.setItem('role', data.role);
+      localStorage.setItem('role', data.role || 'admin'); // Default to admin if not specified
       localStorage.setItem('partnerName', data.partnerName || 'Kiinteistömaailma Helsinki');
       localStorage.setItem('email', data.email);
       localStorage.setItem('agentName', data.agentName || '');
@@ -377,9 +377,13 @@ async function norr3CreateCampaign() {
     document.getElementById('norr3-agent-section').style.display = 'block';
     document.getElementById('norr3-campaign-budget-section').style.display = 'block';
     document.getElementById('norr3-create-agent-email').value = ''; // Clear agent email for admin
+    // Clear address fields for admin
+    document.getElementById('norr3-create-campaign-address').value = '';
+    document.getElementById('norr3-create-campaign-postal-code').value = '';
+    document.getElementById('norr3-create-campaign-city').value = '';
   } else {
     document.getElementById('norr3-agent-section').style.display = 'none';
-    document.getElementById('norr3-campaign-budget-section').style.display = 'none';
+    document.getElementById('norr3-campaign-budget-section').style.display = 'block'; // Show budget section for agents
     // Automatically fetch apartments and populate address fields for the agent's email
     const agentEmail = localStorage.getItem('agentEmail') || '';
     if (agentEmail) {
@@ -395,11 +399,6 @@ async function norr3LoadApartmentsForAgent(agentEmail) {
     showAlert(translations[currentLanguage].pleaseLogin);
     return;
   }
-  const loadBtnText = document.getElementById('norr3-load-apartments-text');
-  const loadBtnIcon = document.getElementById('norr3-load-apartments-icon');
-  loadBtnText.style.display = 'none';
-  loadBtnIcon.className = 'fas fa-spinner fa-spin';
-  loadBtnIcon.style.display = 'inline-block';
   try {
     const res = await fetch('/api/apartments', { headers: { 'Authorization': `Bearer ${token}` } });
     if (!res.ok) throw new Error(await res.text());
@@ -411,6 +410,10 @@ async function norr3LoadApartmentsForAgent(agentEmail) {
     if (!filtered.length) {
       showAlert(translations[currentLanguage].noApartments);
       table.innerHTML = `<p>No apartments found.</p>`;
+      // Clear address fields if no apartments found
+      document.getElementById('norr3-create-campaign-address').value = '';
+      document.getElementById('norr3-create-campaign-postal-code').value = '';
+      document.getElementById('norr3-create-campaign-city').value = '';
     } else {
       table.innerHTML = '';
       filtered.forEach(apt => {
@@ -432,10 +435,23 @@ async function norr3LoadApartmentsForAgent(agentEmail) {
         `;
         table.appendChild(row);
       });
+      // Automatically populate address fields with the first apartment's details for agents
+      if (localStorage.getItem('role') !== 'admin') {
+        const firstApt = filtered[0];
+        document.getElementById('norr3-create-campaign-address').value = firstApt.address || '';
+        document.getElementById('norr3-create-campaign-postal-code').value = firstApt.postcode || '';
+        document.getElementById('norr3-create-campaign-city').value = firstApt.city || '';
+      }
     }
   } catch (err) {
     showAlert('Failed to load apartments: ' + err.message);
+    // Clear address fields on error
+    document.getElementById('norr3-create-campaign-address').value = '';
+    document.getElementById('norr3-create-campaign-postal-code').value = '';
+    document.getElementById('norr3-create-campaign-city').value = '';
   } finally {
+    const loadBtnText = document.getElementById('norr3-load-apartments-text');
+    const loadBtnIcon = document.getElementById('norr3-load-apartments-icon');
     loadBtnIcon.style.display = 'none';
     loadBtnText.style.display = 'inline-block';
     loadBtnText.textContent = 'Load Apartments';
@@ -443,7 +459,7 @@ async function norr3LoadApartmentsForAgent(agentEmail) {
 }
 
 async function norr3PopulateApartmentDetails() {
-  if (allApartments.length > 0 && !selectedApartments.length) {
+  if (allApartments.length > 0 && !selectedApartments.length && localStorage.getItem('role') !== 'admin') {
     // Automatically select the first apartment for agents to populate details
     const firstApt = allApartments[0];
     selectedApartments.push({ key: firstApt.key, campaign_radius: 1500 });
@@ -501,18 +517,26 @@ async function norr3EditCampaign(campaignId) {
       campaign_radius: a.campaign_radius || 1500
     }));
     if (localStorage.getItem('role') === 'admin') {
+      document.getElementById('norr3-agent-section').style.display = 'block';
+      document.getElementById('norr3-campaign-budget-section').style.display = 'block';
       norr3RenderSelectedApartments();
       // Pre-fill agent email if it exists in the campaign
       const agentEmail = allApartments.find(a => a.agentEmail === campaign.agent_key)?.agentEmail || '';
-      document.getElementById('norr3-create-agent-email').value = agentEmail;
+      document.getElementById('norr3-edit-agent-email').value = agentEmail;
+      // Set address fields for admin (manual entry if needed or from campaign)
+      document.getElementById('norr3-edit-campaign-address').value = campaign.campaign_address || '';
+      document.getElementById('norr3-edit-campaign-postal-code').value = campaign.campaign_postal_code || '';
+      document.getElementById('norr3-edit-campaign-city').value = campaign.campaign_city || '';
     } else {
+      document.getElementById('norr3-agent-section').style.display = 'none';
+      document.getElementById('norr3-campaign-budget-section').style.display = 'block'; // Show budget section for agents
       norr3RenderSelectedApartments();
       // Populate address fields for agents in edit mode
       const firstApt = allApartments.find(a => a.key === selectedApartments[0]?.key);
       if (firstApt) {
-        document.getElementById('norr3-create-campaign-address').value = firstApt.address || '';
-        document.getElementById('norr3-create-campaign-postal-code').value = firstApt.postcode || '';
-        document.getElementById('norr3-create-campaign-city').value = firstApt.city || '';
+        document.getElementById('norr3-edit-campaign-address').value = firstApt.address || '';
+        document.getElementById('norr3-edit-campaign-postal-code').value = firstApt.postcode || '';
+        document.getElementById('norr3-edit-campaign-city').value = firstApt.city || '';
       }
     }
   } catch (err) {
@@ -526,9 +550,9 @@ function norr3CloseModal(event) {
   document.getElementById('norr3-edit-modal').style.display = 'none';
   selectedApartments = [];
   // Clear address fields when closing
-  document.getElementById('norr3-create-campaign-address').value = '';
-  document.getElementById('norr3-create-campaign-postal-code').value = '';
-  document.getElementById('norr3-create-campaign-city').value = '';
+  document.getElementById('norr3-edit-campaign-address').value = '';
+  document.getElementById('norr3-edit-campaign-postal-code').value = '';
+  document.getElementById('norr3-edit-campaign-city').value = '';
 }
 
 function norr3ToggleCreateEndDate() {
@@ -613,23 +637,21 @@ async function norr3SaveCampaign() {
     campPost = firstApt.postcode || '';
     campCity = firstApt.city || '';
   } else {
-    // Use input fields for address if manually entered by admin
-    campAddress = document.getElementById('norr3-create-campaign-address')?.value || '';
-    campPost = document.getElementById('norr3-create-campaign-postal-code')?.value || '';
-    campCity = document.getElementById('norr3-create-campaign-city')?.value || '';
+    // Use input fields for address if manually entered by admin or not found
+    campAddress = (isCreate ? document.getElementById('norr3-create-campaign-address') : document.getElementById('norr3-edit-campaign-address'))?.value.trim() || '';
+    campPost = (isCreate ? document.getElementById('norr3-create-campaign-postal-code') : document.getElementById('norr3-edit-campaign-postal-code'))?.value.trim() || '';
+    campCity = (isCreate ? document.getElementById('norr3-create-campaign-city') : document.getElementById('norr3-edit-campaign-city'))?.value.trim() || '';
   }
 
   const combinedChannels = new Set();
   let combinedBudget = { meta: 0, display: 0, pdooh: 0 };
-  if (localStorage.getItem('role') === 'admin') {
-    combinedBudget.meta = parseFloat(document.getElementById('norr3-create-budget-meta').value) || 0;
-    combinedBudget.display = parseFloat(document.getElementById('norr3-create-budget-display').value) || 0;
-    combinedBudget.pdooh = parseFloat(document.getElementById('norr3-create-budget-pdooh').value) || 0;
-    ['meta', 'display', 'pdooh'].forEach(ch => {
-      const checkbox = document.getElementById(`norr3-create-channel-${ch}`);
-      if (checkbox && checkbox.checked) combinedChannels.add(ch);
-    });
-  }
+  combinedBudget.meta = parseFloat(isCreate ? document.getElementById('norr3-create-budget-meta').value : document.getElementById('norr3-edit-budget-meta').value) || 0;
+  combinedBudget.display = parseFloat(isCreate ? document.getElementById('norr3-create-budget-display').value : document.getElementById('norr3-edit-budget-display').value) || 0;
+  combinedBudget.pdooh = parseFloat(isCreate ? document.getElementById('norr3-create-budget-pdooh').value : document.getElementById('norr3-edit-budget-pdooh').value) || 0;
+  ['meta', 'display', 'pdooh'].forEach(ch => {
+    const checkbox = document.getElementById(`norr3-${isCreate ? 'create' : 'edit'}-channel-${ch}`);
+    if (checkbox && checkbox.checked) combinedChannels.add(ch);
+  });
   const decoded = jwtDecode(token);
   const agentName = agentInfo.name || decoded.agentName || '';
   const agentKey = agentInfo.key || decoded.agentKey || '';
@@ -739,11 +761,6 @@ async function norr3LoadApartments() {
     showAlert("Please enter an agent email.");
     return;
   }
-  const loadBtnText = document.getElementById('norr3-load-apartments-text');
-  const loadBtnIcon = document.getElementById('norr3-load-apartments-icon');
-  loadBtnText.style.display = 'none';
-  loadBtnIcon.className = 'fas fa-spinner fa-spin';
-  loadBtnIcon.style.display = 'inline-block';
   try {
     const res = await fetch('/api/apartments', { headers: { 'Authorization': `Bearer ${token}` } });
     if (!res.ok) throw new Error(await res.text());
@@ -755,6 +772,10 @@ async function norr3LoadApartments() {
     if (!filtered.length) {
       showAlert(translations[currentLanguage].noApartments);
       table.innerHTML = `<p>No apartments found.</p>`;
+      // Clear address fields if no apartments found
+      document.getElementById('norr3-create-campaign-address').value = '';
+      document.getElementById('norr3-create-campaign-postal-code').value = '';
+      document.getElementById('norr3-create-campaign-city').value = '';
     } else {
       table.innerHTML = '';
       filtered.forEach(apt => {
@@ -776,10 +797,23 @@ async function norr3LoadApartments() {
         `;
         table.appendChild(row);
       });
+      // Populate address fields with the first apartment's details for agents or admins if applicable
+      if (localStorage.getItem('role') !== 'admin' || document.getElementById('norr3-create-agent-email').value) {
+        const firstApt = filtered[0];
+        document.getElementById('norr3-create-campaign-address').value = firstApt.address || '';
+        document.getElementById('norr3-create-campaign-postal-code').value = firstApt.postcode || '';
+        document.getElementById('norr3-create-campaign-city').value = firstApt.city || '';
+      }
     }
   } catch (err) {
     showAlert('Failed to load apartments: ' + err.message);
+    // Clear address fields on error
+    document.getElementById('norr3-create-campaign-address').value = '';
+    document.getElementById('norr3-create-campaign-postal-code').value = '';
+    document.getElementById('norr3-create-campaign-city').value = '';
   } finally {
+    const loadBtnText = document.getElementById('norr3-load-apartments-text');
+    const loadBtnIcon = document.getElementById('norr3-load-apartments-icon');
     loadBtnIcon.style.display = 'none';
     loadBtnText.style.display = 'inline-block';
     loadBtnText.textContent = 'Load Apartments';
@@ -1106,6 +1140,10 @@ function norr3ShowNotifications() {
   console.warn('norr3ShowNotifications is not implemented');
 }
 
+function norr3CloseNotificationModal(event) {
+  document.getElementById('norr3-notification-modal').style.display = 'none';
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.norr3-modal').forEach(modal => {
     modal.addEventListener('click', e => {
@@ -1130,12 +1168,10 @@ window.onload = function() {
   if (token) {
     localStorage.setItem('token', token);
     localStorage.setItem('norr3LoggedIn', 'true');
-    localStorage.setItem('role', service === 'norr3' ? 'admin' : 'partner');
+    localStorage.setItem('role', 'admin'); // Anyone logging in with Google is an admin
     localStorage.setItem('partnerName', service === 'norr3' ? 'NØRR3' : 'Kiinteistömaailma Helsinki');
-    localStorage.setItem('email', 'seppo.kairikko@kiinteistomaailma.fi');
-    if (localStorage.getItem('role') !== 'admin') {
-      localStorage.setItem('agentEmail', 'seppo.kairikko@kiinteistomaailma.fi');
-    }
+    localStorage.setItem('email', 'seppo.kairikko@kiinteistomaailma.fi'); // Default for testing, update as needed
+    localStorage.setItem('agentEmail', 'seppo.kairikko@kiinteistomaailma.fi'); // Default for agents
     document.getElementById('norr3-container').style.display = 'block';
     if (localStorage.getItem('role') === 'admin') {
       showSection('norr3-service-selection');
@@ -1163,10 +1199,6 @@ window.onload = function() {
       document.getElementById('norr3-back-button').style.display = 'none';
       const list = document.getElementById('norr3-campaign-list');
       list.innerHTML = `<p role="status">${translations[currentLanguage].noCampaigns}</p>`;
-      const buttonContainer = document.createElement('div');
-      buttonContainer.className = 'norr3-fetch-button';
-      buttonContainer.innerHTML = `<button class="norr3-btn-primary" onclick="norr3FetchCampaigns()" data-translate="fetchCampaigns">${translations[currentLanguage].fetchCampaigns}</button>`;
-      list.parentNode.insertBefore(buttonContainer, list);
     }
     norr3FetchUsers(); // Fetch initial users from server in-memory
     norr3FetchCampaigns(); // Fetch initial campaigns from Sheets

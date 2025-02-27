@@ -427,7 +427,7 @@ app.put('/api/users/:email', async (req, res) => {
   }
 });
 
-// Google login endpoints
+// Google login endpoints (set as admin)
 app.get('/auth/google-login', (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${GOOGLE_REDIRECT_URI}&response_type=code&scope=email profile`);
@@ -454,11 +454,11 @@ app.get('/auth/google-callback', async (req, res) => {
       const newUser = {
         email: user.email,
         password: bcrypt.hashSync('defaultPassword123', 10),
-        partnerName: 'Kiinteistömaailma Helsinki',
+        partnerName: 'NØRR3', // Default for Google login as admin
         agentName: user.name || '',
-        agentKey: '1160ska',
+        agentKey: 'google-' + Math.random().toString(36).substr(2, 9),
         agentImage: user.picture || '',
-        role: 'partner'
+        role: 'admin' // Force Google login as admin
       };
       users.push(newUser);
       existingUser = newUser;
@@ -466,7 +466,7 @@ app.get('/auth/google-callback', async (req, res) => {
     const token = jwt.sign(
       { 
         email: existingUser.email, 
-        role: existingUser.role, 
+        role: 'admin', // Force role as admin for Google login
         partnerName: existingUser.partnerName, 
         agentName: existingUser.agentName, 
         agentKey: existingUser.agentKey 
@@ -474,7 +474,7 @@ app.get('/auth/google-callback', async (req, res) => {
       JWT_SECRET,
       { expiresIn: '4h' }
     );
-    res.redirect(`https://kiinteistomaailma.norr3.fi/?token=${token}&service=kiinteistomaailma`);
+    res.redirect(`https://kiinteistomaailma.norr3.fi/?token=${token}&service=norr3`);
   } catch (error) {
     console.error('Google login failed:', error);
     res.status(500).send('Google login failed: ' + error.message);
