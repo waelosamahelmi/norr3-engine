@@ -62,6 +62,7 @@ async function refreshGoogleToken() {
 */
 async function syncToSheets(data) {
   try {
+    console.log('Campaigns data being synced to Sheets:', JSON.stringify(data, null, 2));
     const token = await refreshGoogleToken();
     const rows = data.map(item => [
       item.id || '',
@@ -81,20 +82,25 @@ async function syncToSheets(data) {
       (item.budget_display || 0).toString(),
       (item.budget_pdooh || 0).toString()
     ]);
+    console.log('Rows being sent to Google Sheets:', JSON.stringify(rows, null, 2));
     await axios.post(
       `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_ID}/values/LIVE!A1:append?valueInputOption=RAW`,
       { values: rows },
       { headers: { 'Authorization': `Bearer ${token}` } }
     );
   } catch (error) {
-    console.error('Error syncing to Campaigns in Google Sheets:', error);
-    throw new Error('Failed to sync campaigns to Google Sheets: ' + error.message);
+    console.error('Error syncing to LIVE in Google Sheets:', error.response ? {
+      status: error.response.status,
+      data: error.response.data,
+      headers: error.response.headers
+    } : error);
+    throw new Error('Failed to sync campaigns to Google Sheets: ' + (error.response?.data?.error?.message || error.message));
   }
 }
 
 /*
   Function: fetchFromSheets
-  - Fetches campaigns from Google Sheets (Campaigns sheet only).
+  - Fetches campaigns from Google Sheets (LIVE sheet).
 */
 async function fetchFromSheets() {
   try {
@@ -124,7 +130,7 @@ async function fetchFromSheets() {
       apartments: [] // Will be populated separately if needed
     }));
   } catch (error) {
-    console.error('Error fetching from Campaigns in Google Sheets:', error);
+    console.error('Error fetching from LIVE in Google Sheets:', error);
     throw new Error('Failed to fetch campaigns from Google Sheets: ' + error.message);
   }
 }

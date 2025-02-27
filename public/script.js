@@ -233,8 +233,6 @@ async function norr3FetchUsers() {
     const res = await fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } });
     if (!res.ok) throw new Error(translations[currentLanguage].failedLoadUsers);
     cachedUsers = await res.json();
-  } catch (err) {
-    showAlert('Failed to fetch users: ' + err.message);
   } finally {
     showLoadingScreen(false);
   }
@@ -332,6 +330,8 @@ async function norr3ShowCampaignInfo(id) {
       <p><strong>Agent:</strong> ${camp.agent_name || ''}</p>
       <p><strong>Apartment Keys:</strong> ${(camp.apartments || []).map(a => a.key).join(', ') || 'None'}</p>
       <p><strong>Address:</strong> ${camp.address || ''}</p>
+      <p><strong>Postal Code:</strong> ${camp.postal_code || ''}</p>
+      <p><strong>City:</strong> ${camp.city || ''}</p>
       <p><strong>Radius:</strong> ${(camp.apartments || []).map(a => a.radius).join(', ') || 'N/A'} meters</p>
       <p><strong>Channels:</strong> ${[camp.channel_meta ? 'Meta' : '', camp.channel_display ? 'Display' : '', camp.channel_pdooh ? 'PDOOH' : ''].filter(Boolean).join(', ') || 'None'}</p>
       <p><strong>Budgets:</strong> Meta: ${camp.budget_meta || 0}€, Display: ${camp.budget_display || 0}€, PDOOH: ${camp.budget_pdooh || 0}€</p>
@@ -370,6 +370,7 @@ async function norr3CreateCampaign() {
   if (localStorage.getItem('role') === 'admin') {
     document.getElementById('norr3-agent-section').style.display = 'block';
     document.getElementById('norr3-campaign-budget-section').style.display = 'block';
+    document.getElementById('norr3-create-agent-email').value = ''; // Clear agent email for admin
   } else {
     document.getElementById('norr3-agent-section').style.display = 'none';
     document.getElementById('norr3-campaign-budget-section').style.display = 'none';
@@ -419,6 +420,9 @@ async function norr3EditCampaign(id) {
     }));
     if (localStorage.getItem('role') === 'admin') {
       norr3RenderSelectedApartments();
+      // Pre-fill agent email if it exists in the campaign
+      const agentEmail = allApartments.find(a => a.agentEmail === campaign.agent_key)?.agentEmail || '';
+      document.getElementById('norr3-create-agent-email').value = agentEmail;
     }
   } catch (err) {
     showAlert('Failed to load campaign for editing: ' + err.message);
@@ -484,6 +488,28 @@ async function norr3SaveCampaign() {
     showLoadingScreen(false);
     return;
   }
+
+  let agentEmail = localStorage.getItem('role') === 'admin'
+    ? document.getElementById('norr3-create-agent-email')?.value.trim().toLowerCase() || ''
+    : (localStorage.getItem('agentEmail') || '').toLowerCase().trim();
+  let agentInfo = {};
+
+  // Fetch agent info if agentEmail exists
+  if (agentEmail) {
+    try {
+      const agentRes = await fetch(`/api/agent-info?email=${encodeURIComponent(agentEmail)}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!agentRes.ok) throw new Error('Failed to fetch agent info');
+      agentInfo = await agentRes.json();
+    } catch (err) {
+      console.error('Error fetching agent info:', err);
+      showAlert('Failed to fetch agent information: ' + err.message);
+      showLoadingScreen(false);
+      return;
+    }
+  }
+
   let campAddress = '', campPost = '', campCity = ''; // Use empty strings or real values
   const firstApt = allApartments.find(a => a.key === selectedApartments[0].key);
   if (firstApt) {
@@ -491,6 +517,7 @@ async function norr3SaveCampaign() {
     campPost = firstApt.postcode || '';
     campCity = firstApt.city || '';
   }
+
   const combinedChannels = new Set();
   let combinedBudget = { meta: 0, display: 0, pdooh: 0 };
   if (localStorage.getItem('role') === 'admin') {
@@ -503,8 +530,9 @@ async function norr3SaveCampaign() {
     });
   }
   const decoded = jwtDecode(token);
-  const agentName = decoded.agentName || '';
-  const agentKey = decoded.agentKey || '';
+  const agentName = agentInfo.name || decoded.agentName || '';
+  const agentKey = agentInfo.key || decoded.agentKey || '';
+
   const campaignData = {
     id: campaignId || Math.random().toString(36).substr(2, 9), // Simple unique ID for in-memory
     partner_name: localStorage.getItem('partnerName') || 'Kiinteistömaailma Helsinki',
@@ -594,7 +622,9 @@ async function norr3LoadApartments() {
     showAlert(translations[currentLanguage].pleaseLogin);
     return;
   }
-  const agentEmail = document.getElementById('norr3-create-agent-email').value.trim().toLowerCase();
+  const agentEmail = localStorage.getItem('role') === 'admin'
+    ? document.getElementById('norr3-create-agent-email').value.trim().toLowerCase()
+    : (localStorage.getItem('agentEmail') || '').toLowerCase().trim();
   if (!agentEmail) {
     showAlert("Please enter an agent email.");
     return;
@@ -974,6 +1004,7 @@ window.onload = function() {
       document.getElementById('norr3-back-button').style.display = 'none';
       const list = document.getElementById('norr3-campaign-list');
       list.innerHTML = `<p role="status">${translations[currentLanguage].noCampaigns}</p>`;
+      list.parentNode.insertBefore(buttonContainer, list);
     }
     norr3FetchUsers(); // Fetch initial users from server in-memory
     norr3FetchCampaigns(); // Fetch initial campaigns from Sheets
