@@ -244,10 +244,13 @@ function norr3Logout() {
   showSection('norr3-login-section');
   document.getElementById('norr3-email').value = '';
   document.getElementById('norr3-password').value = '';
+  const profileContainer = document.getElementById('norr3-user-profile');
+  if (profileContainer) {
+    profileContainer.style.display = 'none';
+  }
   showLoadingScreen(false);
   showAlert('Logged out successfully!');
 }
-
 async function norr3ManualLogin() {
   const email = document.getElementById('norr3-email').value.trim();
   const password = document.getElementById('norr3-password').value.trim();
@@ -405,7 +408,33 @@ function renderCampaignList(campaignsToRender = cachedCampaigns) {
     key.addEventListener('click', () => norr3ShowApartmentInfoFromKey(key.getAttribute('data-key').split(', ')[0]));
   });
 }
+function updateUserProfile() {
+  const token = localStorage.getItem('token');
+  if (token) {
+    const decoded = jwtDecode(token);
+    const email = decoded.email || localStorage.getItem('email') || '';
+    const agentImage = decoded.agentImage || localStorage.getItem('agentImage') || 'https://via.placeholder.com/40';
 
+    // Set the profile picture
+    const profilePic = document.getElementById('norr3-profile-pic');
+    if (profilePic) {
+      profilePic.src = agentImage;
+      profilePic.alt = `Profile of ${email}`;
+    }
+
+    // Set the tooltip with the email
+    const profileContainer = document.getElementById('norr3-user-profile');
+    if (profileContainer) {
+      profileContainer.title = email; // Use title for native browser tooltip
+    }
+  } else {
+    // Hide profile if not logged in
+    const profileContainer = document.getElementById('norr3-user-profile');
+    if (profileContainer) {
+      profileContainer.style.display = 'none';
+    }
+  }
+}
 function showApartmentTooltip(e) {
   const tooltip = document.createElement('div');
   tooltip.className = 'norr3-tooltip';
@@ -1369,6 +1398,7 @@ window.onload = function() {
     norr3FetchCampaigns()
       .then(() => {
         showLoadingScreen(false); // Hide loading screen only after campaigns are fetched and dashboard is loaded
+        updateUserProfile(); // Set profile picture and tooltip after login
       })
       .catch(() => showLoadingScreen(false)); // Ensure loading screen hides on error
   } else if (localStorage.getItem('norr3LoggedIn') === 'true') {
@@ -1393,6 +1423,7 @@ window.onload = function() {
     norr3FetchCampaigns()
       .then(() => {
         showLoadingScreen(false); // Hide loading screen only after campaigns are fetched and dashboard is loaded
+        updateUserProfile(); // Set profile picture and tooltip for existing session
       })
       .catch(() => showLoadingScreen(false)); // Ensure loading screen hides on error
   } else {
@@ -1407,4 +1438,5 @@ window.onload = function() {
   if (localStorage.getItem('role') === 'admin') {
     norr3RenderUsers();
   }
-};
+  updateUserProfile(); // Call on page load to handle profile updates
+}

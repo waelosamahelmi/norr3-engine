@@ -17,6 +17,57 @@
   align-items: center;
   justify-content: center;
 }
+/* Profile picture styles for light theme */
+.norr3-user-profile {
+  display: inline-block;
+  margin-right: 10px; /* Space between profile pic and logout button */
+  vertical-align: middle;
+  position: relative; /* For tooltip positioning */
+}
+
+.norr3-profile-pic {
+  width: 30px; /* Small circular profile picture */
+  height: 30px;
+  border-radius: 50%; /* Circular shape */
+  object-fit: cover; /* Ensure the image fits nicely */
+  border: 2px solid #e2e8f0; /* Light gray border for light theme */
+  cursor: pointer; /* Hand cursor on hover */
+  transition: border-color 0.3s ease; /* Smooth border transition */
+}
+
+.norr3-profile-pic:hover {
+  border-color: #3182ce; /* Blue border on hover for light theme accent */
+}
+
+/* Tooltip for email on hover (custom tooltip for better control) */
+.norr3-user-profile:hover::after {
+  content: attr(title); /* Show email from title attribute */
+  position: absolute;
+  background: #ffffff; /* White background for tooltip */
+  color: #4a5568; /* Dark gray text for tooltip */
+  border: 1px solid #e2e8f0; /* Light gray border */
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+  white-space: nowrap; /* Prevent wrapping in tooltip */
+  left: 50%;
+  transform: translateX(-50%);
+  top: -35px; /* Position above the profile pic */
+}
+
+/* Ensure tooltip doesn’t overlap with other elements */
+.norr3-user-profile:hover::after {
+  min-width: 150px; /* Minimum width for readability */
+  text-align: center;
+}
+
+/* Position the logout button and profile pic together */
+#norr3-logout-btn {
+  vertical-align: middle;
+  margin-left: 5px; /* Small space after profile pic */
+}
 
 /* Logo */
 .norr3-logo-wrapper {
