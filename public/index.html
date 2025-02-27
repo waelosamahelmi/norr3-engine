@@ -50,21 +50,22 @@
             <button id="norr3-create-campaign-btn" onclick="norr3CreateCampaign()" class="norr3-btn-primary" type="button" aria-label="Create New Campaign">
               <i class="fas fa-plus"></i> <span data-translate="createCampaign">Create Campaign</span>
             </button>
-            <button class="norr3-btn-primary" onclick="norr3FetchCampaigns()" data-translate="fetchCampaigns">Fetch</button>
+            <button onclick="norr3UserManagement()" class="norr3-btn-primary" type="button" style="display: none;" id="norr3-user-management-btn">
+              <i class="fas fa-users"></i> <span data-translate="userManagement">User Management</span>
+            </button>
+            <button class="norr3-btn-primary" onclick="norr3FetchCampaigns()" data-translate="fetchCampaigns"><i class="fa fa-refresh"></i>Sync</button>
             <span id="norr3-loading-spinner" class="norr3-loading-spinner" style="display: none;" aria-live="polite">
               <i class="fas fa-spinner fa-spin"></i>
             </span>
           </div>
           <div class="norr3-right-controls">
+           
             <button onclick="norr3Logout()" class="norr3-btn-logout" type="button" aria-label="Logout">
               <i class="fas fa-sign-out-alt"></i> <span data-translate="logout">Logout</span>
             </button>
             <div class="norr3-notification" role="button" tabindex="0" aria-label="Show notifications" onclick="norr3ShowNotifications()">
               <i class="fas fa-bell" id="norr3-notification-icon"></i>
             </div>
-            <button onclick="norr3UserManagement()" class="norr3-btn-primary" type="button" style="display: none;" id="norr3-user-management-btn">
-              <i class="fas fa-users"></i> <span data-translate="userManagement">User Management</span>
-            </button>
           </div>
         </div>
       </div>
