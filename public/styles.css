@@ -45,6 +45,7 @@
   position: relative;
   display: none;
   overflow-y: auto;
+  min-height: 70vh; /* Ensure container has enough height for scrolling */
 }
 .norr3-container::-webkit-scrollbar {
   width: 8px;
@@ -58,7 +59,7 @@
   border-radius: 4px;
 }
 .norr3-container::-webkit-scrollbar-thumb:hover {
-  background: #4a148c;
+  background: #ba68c8;
 }
 
 /* Alert */
@@ -89,7 +90,7 @@
   border-radius: 4px;
 }
 .norr3-alert::-webkit-scrollbar-thumb:hover {
-  background: #4a148c;
+  background: #ba68c8;
 }
 
 /* Language Switcher */
@@ -153,7 +154,7 @@
   border-radius: 4px;
 }
 .norr3-login-box::-webkit-scrollbar-thumb:hover {
-  background: #4a148c;
+  background: #ba68c8;
 }
 
 /* Buttons */
@@ -251,6 +252,7 @@ select {
   width: 100%;
   margin-top: 20px;
   overflow-y: auto;
+  max-height: calc(70vh - 300px); /* Adjust height to fit within container, leaving space for header, controls, and metrics */
 }
 .norr3-table-header {
   display: grid;
@@ -281,6 +283,20 @@ select {
 .norr3-row-off {
   background: #ffebee;
   opacity: 0.8;
+}
+.norr3-campaign-table::-webkit-scrollbar {
+  width: 8px;
+}
+.norr3-campaign-table::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+.norr3-campaign-table::-webkit-scrollbar-thumb {
+  background: #6a1b9a;
+  border-radius: 4px;
+}
+.norr3-campaign-table::-webkit-scrollbar-thumb:hover {
+  background: #ba68c8;
 }
 
 /* Channel Icons */
@@ -380,6 +396,7 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   max-width: 1200px;
   position: relative;
   overflow-y: auto;
+  max-height: 80vh; /* Limit modal height to fit viewport */
 }
 .norr3-modal-content::-webkit-scrollbar {
   width: 8px;
@@ -393,7 +410,7 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   border-radius: 4px;
 }
 .norr3-modal-content::-webkit-scrollbar-thumb:hover {
-  background: #4a148c;
+  background: #ba68c8;
 }
 
 /* Two-Column Layout for Campaign Modals */
@@ -406,6 +423,24 @@ input[type="checkbox"]:checked + .norr3-slider:before {
 .norr3-modal-right {
   padding: 10px;
   overflow-y: auto;
+}
+.norr3-modal-left {
+  max-height: calc(60vh - 100px); /* Adjusted height to fit remaining space after agent section/button, with modern scrolling */
+  overflow-y: auto;
+}
+.norr3-modal-left::-webkit-scrollbar {
+  width: 8px;
+}
+.norr3-modal-left::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+.norr3-modal-left::-webkit-scrollbar-thumb {
+  background: #6a1b9a;
+  border-radius: 4px;
+}
+.norr3-modal-left::-webkit-scrollbar-thumb:hover {
+  background: #ba68c8;
 }
 
 /* Modal Actions */
@@ -425,7 +460,6 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   cursor: pointer;
   transition: color 0.3s ease;
 }
-
 .norr3-close-btn:hover,
 .norr3-close-btn:focus {
   color: #ba68c8;
@@ -437,8 +471,8 @@ input[type="checkbox"]:checked + .norr3-slider:before {
 .norr3-user-table,
 .norr3-apartment-table {
   margin-top: 10px;
-  /* Fixed height for apartment table with scrolling */
-  max-height: 300px;
+  /* Fit apartment list to remaining height of modal left column */
+  max-height: calc(100% - 120px); /* Adjust to leave space for agent section/button */
   overflow-y: auto;
 }
 .norr3-apartment-row {
@@ -454,6 +488,20 @@ input[type="checkbox"]:checked + .norr3-slider:before {
 .norr3-apartment-item img {
   width: 50px;
   height: auto;
+}
+.norr3-apartment-table::-webkit-scrollbar {
+  width: 8px;
+}
+.norr3-apartment-table::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+.norr3-apartment-table::-webkit-scrollbar-thumb {
+  background: #6a1b9a;
+  border-radius: 4px;
+}
+.norr3-apartment-table::-webkit-scrollbar-thumb:hover {
+  background: #ba68c8;
 }
 
 /* User Management Table (One Column Layout) */
@@ -527,7 +575,7 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   border-radius: 4px;
 }
 .norr3-image-slider::-webkit-scrollbar-thumb:hover {
-  background: #4a148c;
+  background: #ba68c8;
 }
 
 /* Loading Screen */
@@ -537,7 +585,7 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.7); /* Darker background for login loading */
   z-index: 2000;
   display: flex;
   justify-content: center;
