@@ -24,7 +24,7 @@ const GOOGLE_CLIENT_ID = '510608755501-ucl194dpbraertmqp8188bb7muh1b5oh.apps.goo
 const GOOGLE_CLIENT_SECRET = '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';
 const GOOGLE_REFRESH_TOKEN = '1//04hKsI6kHczRqCgYIARAAGAQSNwF-L9IrDHN4iJWBcImylm9fFCx8IXWHgQMln-HkTTCL_k7XbzI578mhEAXlqMIFA3HV8i0Ghao';
 const JSON_FEED_URL = 'https://vilpas.kiinteistomaailma.fi/export/km/listings/baseline.json';
-const GOOGLE_REDIRECT_URI = 'https://kiinteistomaailma.norr3.fi/auth/google-callback';
+const GOOGLE_REDIRECT_URI = 'https://wuehzmkhvduybcjwkfaq.supabase.co/auth/v1/callback';
 
 /*
   Function: refreshGoogleToken
@@ -44,39 +44,44 @@ async function refreshGoogleToken() {
   Function: syncToSheets
   - Given an array with one campaign object, calculates per‑day budget,
     formats the campaign data as rows, and appends them to a Google Sheet.
+    The row order is:
+    campaign_id, partner_id, partner_name, agent, agent_key, key, url, campaign_address, campaign_postal_code, campaign_city, campaign_radius,
+    channel_meta, channel_display, channel_pdooh, budget_meta, budget_meta_daily, budget_display, budget_display_daily, budget_pdooh, budget_pdooh_daily,
+    campaign_start_date, campaign_end_date, active
 */
 async function syncToSheets(campaignsArray) {
   const accessToken = await refreshGoogleToken();
   const campaign = campaignsArray[0];
-  const days = campaign.end_date
-    ? Math.max(1, (new Date(campaign.end_date) - new Date(campaign.start_date)) / (1000 * 60 * 60 * 24))
+  const days = campaign.campaign_end_date
+    ? Math.max(1, (new Date(campaign.campaign_end_date) - new Date(campaign.campaign_start_date)) / (1000 * 60 * 60 * 24))
     : 30;
   const rows = [];
+  // For each apartment in the campaign, generate a row
   campaign.apartments.forEach(apt => {
     rows.push([
-      campaign.id,
+      campaign.campaign_id,
       campaign.partner_id,
-      campaign.partnerName,
-      campaign.agent_name,
+      campaign.partner_name,
+      campaign.agent,
       campaign.agent_key,
       apt.key,
       `https://www.kiinteistomaailma.fi/${apt.key}`,
-      campaign.address,
-      campaign.postal_code,
-      campaign.city,
+      campaign.campaign_address,
+      campaign.campaign_postal_code,
+      campaign.campaign_city,
       apt.radius,
-      campaign.channels.includes('meta') ? 1 : 0,
-      campaign.channels.includes('display') ? 1 : 0,
-      campaign.channels.includes('pdooh') ? 1 : 0,
-      (campaign.budget.meta || 0).toString(),
-      ((parseFloat(campaign.budget.meta || 0) / days) || 0).toFixed(2),
-      (campaign.budget.display || 0).toString(),
-      ((parseFloat(campaign.budget.display || 0) / days) || 0).toFixed(2),
-      (campaign.budget.pdooh || 0).toString(),
-      ((parseFloat(campaign.budget.pdooh || 0) / days) || 0).toFixed(2),
-      campaign.start_date,
-      campaign.end_date || '',
-      campaign.status ? '1' : '0'
+      campaign.channel_meta,
+      campaign.channel_display,
+      campaign.channel_pdooh,
+      (campaign.budget_meta || 0).toString(),
+      ((parseFloat(campaign.budget_meta || 0) / days) || 0).toFixed(2),
+      (campaign.budget_display || 0).toString(),
+      ((parseFloat(campaign.budget_display || 0) / days) || 0).toFixed(2),
+      (campaign.budget_pdooh || 0).toString(),
+      ((parseFloat(campaign.budget_pdooh || 0) / days) || 0).toFixed(2),
+      campaign.campaign_start_date,
+      campaign.campaign_end_date || '',
+      campaign.active ? '1' : '0'
     ]);
   });
   await axios.post(
@@ -142,6 +147,7 @@ app.get('/api/apartments', async (req, res) => {
 /*
   Campaign endpoints using Supabase for persistence.
   Partners can only view their own campaigns.
+  Note: The campaign object now uses the new field names.
 */
 app.get('/api/campaigns', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -170,7 +176,7 @@ app.get('/api/campaigns/:id', async (req, res) => {
     const { data, error } = await supabase
       .from('campaigns')
       .select('*')
-      .eq('id', req.params.id)
+      .eq('campaign_id', req.params.id)
       .single();
     if (error) return res.status(404).json({ error: 'Campaign not found' });
     if (decoded.role === 'partner' && data.agent_key.toLowerCase() !== decoded.agentKey.toLowerCase()) {
@@ -189,12 +195,28 @@ app.post('/api/campaigns', async (req, res) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     const randomId = String(Math.floor(1000 + Math.random() * 9000));
-    // For partners, agent info comes from token; admins can provide agent info in the request body.
-    let newCampaign = { ...req.body, id: randomId };
-    if (decoded.role === 'partner') {
-      newCampaign.agent_name = decoded.agentName || 'Unknown Agent';
-      newCampaign.agent_key = decoded.agentKey || 'Unknown';
-    }
+    // Build new campaign object using new field names
+    let newCampaign = {
+      campaign_id: randomId,
+      partner_id: req.body.partner_id || 1,
+      partner_name: req.body.partner_name || decoded.partnerName || 'Kiinteistömaailma Helsinki',
+      agent: decoded.role === 'partner' ? (decoded.agentName || 'Unknown Agent') : req.body.agent,
+      agent_key: decoded.role === 'partner' ? (decoded.agentKey || 'Unknown') : req.body.agent_key,
+      campaign_address: req.body.campaign_address,
+      campaign_postal_code: req.body.campaign_postal_code,
+      campaign_city: req.body.campaign_city,
+      campaign_radius: req.body.campaign_radius,
+      apartments: req.body.apartments, // expected to be a JSON array of apartments with at least key and radius
+      channel_meta: req.body.channels && req.body.channels.includes('meta') ? 1 : 0,
+      channel_display: req.body.channels && req.body.channels.includes('display') ? 1 : 0,
+      channel_pdooh: req.body.channels && req.body.channels.includes('pdooh') ? 1 : 0,
+      budget_meta: req.body.budget && req.body.budget.meta ? req.body.budget.meta : 0,
+      budget_display: req.body.budget && req.body.budget.display ? req.body.budget.display : 0,
+      budget_pdooh: req.body.budget && req.body.budget.pdooh ? req.body.budget.pdooh : 0,
+      campaign_start_date: req.body.start_date,
+      campaign_end_date: req.body.end_date || '',
+      active: req.body.status ? 1 : 0
+    };
     const { data, error } = await supabase.from('campaigns').insert(newCampaign).single();
     if (error) return res.status(500).json({ error: error.message });
     await syncToSheets([data]);
@@ -210,10 +232,11 @@ app.put('/api/campaigns', async (req, res) => {
   if (!token) return res.status(401).json({ error: 'No token provided' });
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
+    // Update campaign using new field names; expect req.body contains campaign_id and other fields
     const { data, error } = await supabase
       .from('campaigns')
       .update(req.body)
-      .eq('id', req.body.id)
+      .eq('campaign_id', req.body.campaign_id)
       .single();
     if (error) return res.status(404).json({ error: 'Campaign not found or update failed' });
     res.json(data);
@@ -228,11 +251,11 @@ app.patch('/api/campaigns/status/:id', async (req, res) => {
   if (!token) return res.status(401).json({ error: 'No token provided' });
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    // Fetch campaign first to ensure partner owns it
+    // Fetch campaign first
     const { data: campaign, error: fetchError } = await supabase
       .from('campaigns')
       .select('*')
-      .eq('id', req.params.id)
+      .eq('campaign_id', req.params.id)
       .single();
     if (fetchError || !campaign) return res.status(404).json({ error: 'Campaign not found' });
     if (decoded.role === 'partner' && campaign.agent_key.toLowerCase() !== decoded.agentKey.toLowerCase()) {
@@ -240,8 +263,8 @@ app.patch('/api/campaigns/status/:id', async (req, res) => {
     }
     const { data, error } = await supabase
       .from('campaigns')
-      .update({ status: req.body.status })
-      .eq('id', req.params.id)
+      .update({ active: req.body.status ? 1 : 0 })
+      .eq('campaign_id', req.params.id)
       .single();
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);
@@ -259,7 +282,7 @@ app.post('/api/sheets/update', async (req, res) => {
     const { data: campaign, error } = await supabase
       .from('campaigns')
       .select('*')
-      .eq('id', req.body.campaignId)
+      .eq('campaign_id', req.body.campaignId)
       .single();
     if (error || !campaign) return res.status(404).json({ error: 'Campaign not found' });
     await syncToSheets([campaign]);
@@ -269,7 +292,27 @@ app.post('/api/sheets/update', async (req, res) => {
   }
 });
 
-// Updated login endpoint using Supabase for user data
+// -----------------------
+// New GET endpoint for User Management
+// -----------------------
+app.get('/api/users', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'No token provided' });
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.role !== 'admin') return res.status(401).json({ error: 'Admin access required' });
+    const { data, error } = await supabase.from('users').select('*');
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// -----------------------
+// Authentication & Google Login
+// -----------------------
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
   const { data: users, error } = await supabase
@@ -316,7 +359,6 @@ app.post('/api/users/autofill', async (req, res) => {
       headers: { 'Cache-Control': 'no-cache' }
     });
     const listings = response.data;
-    // Search for an agent with matching email
     const agentInfo = listings.find(apt => 
       apt.agent && apt.agent.email && apt.agent.email.toLowerCase().trim() === email.toLowerCase().trim()
     );
@@ -330,7 +372,7 @@ app.post('/api/users/autofill', async (req, res) => {
   }
 });
 
-// Google login endpoints – these are kept similar but may be updated later to use Supabase Auth
+// Google login endpoints
 app.get('/auth/google-login', (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${GOOGLE_REDIRECT_URI}&response_type=code&scope=email profile`);
@@ -352,7 +394,6 @@ app.get('/auth/google-callback', async (req, res) => {
       headers: { Authorization: `Bearer ${access_token}` }
     });
     const user = userResponse.data;
-    // Check Supabase for the user; if not exists, insert a new user with default values.
     let { data: existingUser } = await supabase
       .from('users')
       .select('*')
@@ -365,7 +406,7 @@ app.get('/auth/google-callback', async (req, res) => {
         role: 'partner',
         partnerName: 'Kiinteistömaailma Helsinki',
         agentName: '',
-        agentKey: '1160ska', // default agentKey
+        agentKey: '1160ska',
         agentImage: ''
       };
       const { data, error } = await supabase.from('users').insert(newUser).single();
@@ -397,7 +438,7 @@ app.post('/api/users', async (req, res) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     if (decoded.role !== 'admin') return res.status(401).json({ error: 'Admin access required' });
-    const newUser = { ...req.body, password: bcrypt.hashSync(req.body.password, 10), role: 'partner' };
+    const newUser = { ...req.body, password: bcrypt.hashSync(req.body.password, 10), role: req.body.role || 'partner' };
     const { data, error } = await supabase.from('users').insert(newUser).single();
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);
