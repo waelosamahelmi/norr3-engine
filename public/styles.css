@@ -5,6 +5,8 @@
   box-sizing: border-box;
   font-family: 'RocGrotesk-Regular', sans-serif;
 }
+
+/* Body & Background */
 .norr3-body {
   background: linear-gradient(to bottom right, #6a1b9a, #ba68c8);
   color: #1a2027;
@@ -394,7 +396,7 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   background: #4a148c;
 }
 
-/* Two-Column Layout for Modals (Campaign Creation / Editing) */
+/* Two-Column Layout for Campaign Modals */
 .norr3-two-columns {
   display: grid;
   grid-template-columns: 2fr 1fr;
@@ -429,32 +431,43 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   outline: 2px solid #ba68c8;
 }
 
-/* Apartment/User Table & Lists */
+/* Apartment Table & Lists */
 .norr3-apartment-list,
 .norr3-user-table,
 .norr3-apartment-table {
   margin-top: 10px;
-  max-height: 400px;
+  /* Fixed height for apartment table with scrolling */
+  max-height: 300px;
   overflow-y: auto;
 }
 .norr3-apartment-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 5fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 3fr 1fr 1fr;
   gap: 10px;
   padding: 10px;
   border-bottom: 1px solid #e0e0e0;
   background: #fff;
   align-items: center;
 }
-.norr3-apartment-item,
+.norr3-apartment-row img,
+.norr3-apartment-item img {
+  width: 50px;
+  height: auto;
+}
+
+/* User Management Table (One Column Layout) */
 .norr3-user-item {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   gap: 10px;
   padding: 10px;
   border-bottom: 1px solid #e0e0e0;
   background: #fff;
   align-items: center;
+}
+.norr3-user-header {
+  font-weight: bold;
+  background: #f5f7fa;
 }
 
 /* Budget Input */
@@ -493,35 +506,6 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   margin: 10px 0;
 }
 
-/* User Grid */
-.norr3-user-grid {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  margin: 20px 0;
-  overflow-y: auto;
-}
-
-/* Loading Screen */
-.norr3-loading-screen {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.5);
-  z-index: 2000;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #fff;
-  font-size: 20px;
-}
-.norr3-loading-screen i {
-  font-size: 30px;
-  margin-right: 10px;
-}
-
 /* Image Slider */
 .norr3-image-slider {
   display: flex;
@@ -545,132 +529,22 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   background: #4a148c;
 }
 
-/* Additional adjustments for campaign details on the right column */
-.norr3-campaign-dates {
-  display: flex;
-  gap: 10px;
-}
-.norr3-campaign-dates input[type="date"] {
-  width: 50%;
-}
-
-/* Agent Section for Admin Campaign Creation */
-.norr3-admin-create-section {
-  margin-bottom: 20px;
-}
-.norr3-admin-create-section h4 {
-  margin-bottom: 10px;
-}
-.norr3-admin-create-section input[type="email"] {
-  width: calc(100% - 120px);
-  display: inline-block;
-  vertical-align: middle;
-  margin-right: 10px;
-}
-.norr3-admin-create-section .norr3-btn-primary {
-  width: 100px;
-  display: inline-block;
-  vertical-align: middle;
-}
-
-/* Adjust apartment thumbnail size */
-.norr3-apartment-row img,
-.norr3-apartment-item img {
-  width: 50px;
-  height: auto;
-}
-
-/* --- New Styles --- */
-
-/* Campaign Creation - Apartment Table (inside the create modal) */
-#norr3-apartments-table {
-  max-height: 300px;
-  overflow-y: auto;
-  border: 1px solid #e0e0e0;
-  padding: 10px;
-  margin-top: 10px;
-}
-
-/* User Management Add Account Modal */
-#norr3-add-user-modal {
-  display: none;
+/* Loading Screen */
+.norr3-loading-screen {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
   background: rgba(0,0,0,0.5);
-  z-index: 1100;
+  z-index: 2000;
+  display: flex;
   justify-content: center;
   align-items: center;
-}
-#norr3-add-user-modal .norr3-modal-content {
-  width: 400px;
-  padding: 20px;
-  border-radius: 8px;
-  background: #fff;
-  position: relative;
-}
-#norr3-add-user-modal .norr3-add-user-form {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-#norr3-add-user-modal .norr3-add-user-form label {
-  display: flex;
-  flex-direction: column;
-  font-size: 14px;
-  color: #1a2027;
-}
-#norr3-add-user-modal .norr3-add-user-form input[type="email"],
-#norr3-add-user-modal .norr3-add-user-form input[type="password"],
-#norr3-add-user-modal .norr3-add-user-form input[type="text"],
-#norr3-add-user-modal .norr3-add-user-form input[type="url"],
-#norr3-add-user-modal .norr3-add-user-form select {
-  padding: 8px;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
-}
-#norr3-add-user-modal .norr3-auto-fill-btn {
-  margin-top: 5px;
-  align-self: flex-start;
-  padding: 6px 12px;
-  font-size: 12px;
-  background: #4a148c;
   color: #fff;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+  font-size: 20px;
 }
-#norr3-add-user-modal .norr3-password-toggle {
-  cursor: pointer;
-  align-self: flex-end;
-}
-#norr3-add-user-modal .norr3-add-user-actions {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 20px;
-}
-#norr3-add-user-modal .norr3-add-user-actions button {
-  width: 48%;
-  padding: 10px;
-  font-size: 14px;
-}
-.norr3-add-user-email-container {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-.norr3-add-user-email-container input[type="email"] {
-  flex: 3;
-}
-.norr3-add-user-email-container button {
-  flex: 1;
-  padding: 8px;
-  font-size: 14px;
-  background: #4a148c;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+.norr3-loading-screen i {
+  font-size: 30px;
+  margin-right: 10px;
 }
