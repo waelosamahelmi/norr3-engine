@@ -536,19 +536,95 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   background: #ba68c8;
 }
 
-/* User Management Table (One Column Layout) */
+/* User table styles */
+/* User table styles for light theme */
 .norr3-user-item {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 10px;
-  padding: 10px;
-  border-bottom: 1px solid #e0e0e0;
-  background: #fff;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid #e2e8f0; /* Light gray border for consistency */
+  background-color: #ffffff; /* White background for light theme */
+  color: #4a5568; /* Dark gray text for contrast in light theme */
 }
+
 .norr3-user-header {
   font-weight: bold;
-  background: #f5f7fa;
+  background-color: #edf2f7; /* Very light gray background for header */
+  color: #2d3748; /* Darker gray for header text */
+}
+
+.norr3-user-text {
+  flex: 1; /* Allow text to expand but stay within column */
+  font-size: 12px; /* Smaller font size to fit text within columns */
+  overflow: hidden; /* Prevent text overflow */
+  text-overflow: ellipsis; /* Show ellipsis for long text */
+  white-space: nowrap; /* Prevent text wrapping */
+  padding: 0 5px; /* Add padding for spacing */
+  cursor: default; /* Default cursor for text */
+}
+
+/* Tooltip styling for light theme (using title attribute) */
+.norr3-user-text:hover::after {
+  content: attr(title); /* Show full text as tooltip */
+  position: absolute;
+  background: #ffffff; /* White background for tooltip */
+  color: #4a5568; /* Dark gray text for tooltip */
+  border: 1px solid #e2e8f0; /* Light gray border */
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+  white-space: nowrap; /* Prevent wrapping in tooltip */
+}
+
+/* Position tooltip above or below the text based on space */
+.norr3-user-text:hover::after {
+  left: 50%;
+  transform: translateX(-50%);
+  top: -30px; /* Adjust position above text */
+}
+
+/* Action icon styles for light theme */
+.norr3-action-icon {
+  font-size: 16px; /* Icon size */
+  color: #a0aec0; /* Light gray for inactive state */
+  margin-left: 10px; /* Space between icons */
+  cursor: pointer; /* Hand cursor on hover */
+  transition: color 0.3s ease; /* Smooth color transition for hover */
+}
+
+.norr3-action-icon:hover {
+  color: #3182ce; /* Blue for hover (light theme accent) */
+}
+
+.norr3-action-icon:focus {
+  outline: none; /* Remove default outline */
+  box-shadow: 0 0 0 2px #3182ce; /* Blue focus ring for accessibility */
+}
+
+/* Ensure responsiveness */
+@media (max-width: 768px) {
+  .norr3-user-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .norr3-user-text {
+    width: 100%; /* Full width on mobile */
+    white-space: normal; /* Allow wrapping on mobile */
+  }
+  .norr3-action-icon {
+    margin-left: 0; /* Remove margin on mobile */
+    margin-top: 5px; /* Add vertical spacing */
+  }
+  .norr3-user-text:hover::after {
+    position: fixed; /* Adjust tooltip position on mobile */
+    left: auto;
+    top: auto;
+    bottom: 100%;
+    transform: none;
+  }
 }
 
 /* Budget Input */

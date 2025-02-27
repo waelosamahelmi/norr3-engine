@@ -28,7 +28,7 @@ let users = [
     partnerName: 'Kiinteistömaailma Helsinki',
     agentName: 'Seppo Kairikko',
     agentKey: '1160ska',
-    agentImage: 'https://example.com/image.jpg',
+    agentImage: 'https://norr3.fi/wp-content/uploads/2025/02/265574029cb3c272131e0a888e3d891a.jpg',
     role: 'partner'
   },
   {
@@ -37,7 +37,7 @@ let users = [
     partnerName: 'NØRR3',
     agentName: 'Admin User',
     agentKey: 'admin123',
-    agentImage: 'https://example.com/admin.jpg',
+    agentImage: 'https://norr3.fi/wp-content/uploads/2025/02/265574029cb3c272131e0a888e3d891a.jpg',
     role: 'admin'
   },
   {
@@ -46,7 +46,7 @@ let users = [
     partnerName: 'NØRR3',
     agentName: 'Admin User 2',
     agentKey: 'admin123',
-    agentImage: 'https://example.com/admin2.jpg',
+    agentImage: 'https://norr3.fi/wp-content/uploads/2025/02/265574029cb3c272131e0a888e3d891a.jpg',
     role: 'admin'
   }
 ]; // Hardcoded in-memory users
@@ -498,7 +498,7 @@ app.get('/auth/google-callback', async (req, res) => {
         partnerName: 'NØRR3', // Default for Google login as admin
         agentName: user.name || 'Admin User',
         agentKey: user.email === 'admin@norr3.fi' || user.email === 'admin2@norr3.fi' ? 'admin123' : 'google-' + Math.random().toString(36).substr(2, 9),
-        agentImage: user.picture || 'https://example.com/admin.jpg',
+        agentImage: user.picture || 'https://norr3.fi/wp-content/uploads/2025/02/265574029cb3c272131e0a888e3d891a.jpg',
         role: 'admin' // Force Google login as admin with full access
       };
       users.push(newUser);

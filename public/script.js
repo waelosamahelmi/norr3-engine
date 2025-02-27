@@ -178,7 +178,7 @@ let currentApartmentImageIndex = 0;
 
 function getThumbnailUrl(apt) {
   const mainImg = (apt.images || []).find(i => i.type === 'MAIN');
-  return mainImg && mainImg.url ? mainImg.url : 'https://via.placeholder.com/50';
+  return mainImg && mainImg.url ? mainImg.url : 'https://norr3.fi/wp-content/uploads/2025/02/265574029cb3c272131e0a888e3d891a.jpg';
 }
 
 function setLanguage(lang) {
@@ -450,7 +450,7 @@ async function norr3ShowApartmentInfoFromKey(key) {
     const info = document.getElementById('norr3-apartment-info');
     const images = apt.images || [];
     slider.innerHTML = images.map((img, index) => `
-      <img src="${img.url || 'https://via.placeholder.com/400'}" alt="${apt.address || 'Apartment Image'}" class="norr3-slider-image ${index === 0 ? 'active' : ''}" style="max-height: 300px; width: auto; margin: 5px; display: ${index === 0 ? 'block' : 'none'};" loading="lazy">
+      <img src="${img.url || 'https://norr3.fi/wp-content/uploads/2025/02/265574029cb3c272131e0a888e3d891a.jpg'}" alt="${apt.address || 'Apartment Image'}" class="norr3-slider-image ${index === 0 ? 'active' : ''}" style="max-height: 300px; width: auto; margin: 5px; display: ${index === 0 ? 'block' : 'none'};" loading="lazy">
     `).join('');
     info.innerHTML = `
       <h4>${translations[currentLanguage].apartmentDetails}</h4>
@@ -1091,7 +1091,7 @@ async function norr3RenderUsers() {
     cachedUsers = await res.json();
     const list = document.getElementById('norr3-user-list');
     list.innerHTML = '';
-    // Build table header
+    // Build table header with light theme
     const header = document.createElement('div');
     header.className = 'norr3-user-item norr3-user-header';
     header.innerHTML = `
@@ -1104,20 +1104,25 @@ async function norr3RenderUsers() {
       <span>Actions</span>
     `;
     list.appendChild(header);
-    // Build rows for each user
+    // Build rows for each user with shorter text, ellipsis, and tooltips
     cachedUsers.forEach(u => {
+      // Function to shorten text with ellipsis, keeping full text for tooltip
+      const shortenText = (text, maxLength = 20) => {
+        if (!text) return '';
+        return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
+      };
       const row = document.createElement('div');
       row.className = 'norr3-user-item';
       row.innerHTML = `
-        <span>${u.email || ''}</span>
-        <span>${u.partnerName || ''}</span>
-        <span>${u.agentName || ''}</span>
-        <span>${u.agentKey || ''}</span>
-        <span><img src="${u.agentImage || 'https://via.placeholder.com/50'}" alt="${u.agentName || 'Agent'}" style="width:40px; height:auto;"></span>
-        <span>${u.role || ''}</span>
+        <span class="norr3-user-text" title="${u.email || ''}">${shortenText(u.email || '')}</span>
+        <span class="norr3-user-text" title="${u.partnerName || ''}">${shortenText(u.partnerName || '')}</span>
+        <span class="norr3-user-text" title="${u.agentName || ''}">${shortenText(u.agentName || '')}</span>
+        <span class="norr3-user-text" title="${u.agentKey || ''}">${shortenText(u.agentKey || '')}</span>
+        <span><img src="${u.agentImage || 'https://norr3.fi/wp-content/uploads/2025/02/265574029cb3c272131e0a888e3d891a.jpg'}" alt="${u.agentName || 'Agent'}" style="width:40px; height:auto;" loading="lazy"></span>
+        <span class="norr3-user-text" title="${u.role || ''}">${shortenText(u.role || '')}</span>
         <span>
-          <button class="norr3-btn-primary" onclick="norr3EditUser('${u.email}')">Edit</button>
-          <button class="norr3-btn-primary" onclick="norr3RemoveUser('${u.email}')">Remove</button>
+          <i class="fas fa-edit norr3-action-icon" title="Edit" onclick="norr3EditUser('${u.email}')" tabindex="0" aria-label="Edit user"></i>
+          <i class="fas fa-trash norr3-action-icon" title="Remove" onclick="norr3RemoveUser('${u.email}')" tabindex="0" aria-label="Remove user"></i>
         </span>
       `;
       list.appendChild(row);
@@ -1127,9 +1132,7 @@ async function norr3RenderUsers() {
     showLoadingScreen(false);
     showAlert('Failed to load users: ' + err.message);
   }
-}
-
-// Open the Add User modal
+}// Open the Add User modal
 function norr3OpenAddUser() {
   document.getElementById('norr3-add-user-modal').style.display = 'flex';
   // Clear form fields
