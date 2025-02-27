@@ -362,52 +362,6 @@ async function norr3FetchUsers() {
   }
 }
 
-function renderCampaignList(campaignsToRender = cachedCampaigns) {
-  const list = document.getElementById('norr3-campaign-list');
-  list.innerHTML = '';
-  if (!campaignsToRender.length) {
-    list.innerHTML = `<p role="status">${translations[currentLanguage].noCampaigns}</p>`;
-    return;
-  }
-  campaignsToRender.forEach(camp => {
-    const displayId = camp.campaign_id.slice(-4);
-    const totalBudget = (camp.budget_meta + camp.budget_display + camp.budget_pdooh);
-    const apartmentKeys = (camp.apartments || []).map(a => a.key).join(', ');
-    const apartmentLinks = (camp.apartments || []).map(a => `https://www.kiinteistomaailma.fi/${a.key}`).join(', ');
-    const row = document.createElement('div');
-    row.className = `norr3-table-row ${!camp.active ? 'norr3-row-off' : ''}`;
-    row.setAttribute('role', 'row');
-    row.innerHTML = `
-      <span role="cell">${displayId}</span>
-      <span role="cell">${camp.agent || ''}</span>
-      <span role="cell"><span class="norr3-apartment-key" data-key="${apartmentKeys}" data-address="${camp.apartments.map(a => `${a.key}: ${allApartments.find(apt => apt.key === a.key)?.address || 'Unknown'}`).join(', ')}">${apartmentKeys || ''}</span></span>
-      <span role="cell">${formatDate(camp.campaign_start_date)}</span>
-      <span role="cell">${camp.campaign_end_date ? formatDate(camp.campaign_end_date) : translations[currentLanguage].ongoing}</span>
-      <span role="cell">
-        ${camp.channel_meta ? '<i class="fab fa-facebook" title="Meta"></i>' : ''}
-        ${camp.channel_display ? '<i class="fas fa-desktop" title="Display"></i>' : ''}
-        ${camp.channel_pdooh ? '<i class="fas fa-sign" title="PDOOH"></i>' : ''}
-      </span>
-      <span role="cell">${totalBudget.toFixed(2)}€</span>
-      <span role="cell">
-        <label class="norr3-toggle-slider">
-          <input type="checkbox" ${camp.active ? 'checked' : ''} onchange="norr3ToggleStatus('${camp.campaign_id}', this.checked)"/>
-          <span class="norr3-slider"></span>
-        </label>
-      </span>
-      <span role="cell">
-        <i class="fas fa-info-circle norr3-info-icon" onclick="norr3ShowCampaignInfo('${camp.campaign_id}')" tabindex="0" aria-label="View campaign details"></i>
-      </span>
-    `;
-    list.appendChild(row);
-  });
-  // Add event listeners for apartment key tooltips and clicks
-  document.querySelectorAll('.norr3-apartment-key').forEach(key => {
-    key.addEventListener('mouseover', showApartmentTooltip);
-    key.addEventListener('mouseout', hideApartmentTooltip);
-    key.addEventListener('click', () => norr3ShowApartmentInfoFromKey(key.getAttribute('data-key').split(', ')[0]));
-  });
-}
 // Update the updateUserProfile function
 function updateUserProfile() {
   const token = localStorage.getItem('token');
@@ -582,6 +536,8 @@ async function norr3ShowApartmentInfoFromKey(key) {
   }
 }
 
+// Remove or comment out norr3PrevImage and norr3NextImage since they’re not needed
+/*
 function norr3PrevImage() {
   const images = document.querySelectorAll('.norr3-slider-image');
   if (images.length > 0) {
@@ -599,10 +555,139 @@ function norr3NextImage() {
     images[currentApartmentImageIndex].style.display = 'block';
   }
 }
+*/
 
+// Update norr3ShowApartmentInfoFromKey to match the old logic
+async function norr3ShowApartmentInfoFromKey(key) {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    showAlert(translations[currentLanguage].pleaseLogin);
+    return;
+  }
+  showLoadingScreen(true);
+  try {
+    const res = await fetch('/api/apartments', { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) throw new Error(await res.text());
+    const apartments = await res.json();
+    const apt = apartments.find(a => String(a.key) === String(key));
+    if (!apt) throw new Error('Apartment not found');
+    
+    document.getElementById('norr3-apartment-info-modal').style.display = 'flex';
+    const info = document.getElementById('norr3-apartment-info');
+    const images = apt.images || [];
+    info.innerHTML = `
+      <h4>${apt.address || 'Unknown Address'}, ${apt.postcode || ''} ${apt.city || ''}</h4>
+      <div class="norr3-image-slider">
+        ${images.map(img => `<img src="${img.url || 'https://via.placeholder.com/400'}" alt="${apt.address || 'Apartment Image'}" loading="lazy" style="max-width: 200px; height: auto; border-radius: 4px;">`).join('')}
+      </div>
+      <p><strong>Key:</strong> ${apt.key || 'Unknown'}</p>
+      <p><strong>Link:</strong> <a href="https://www.kiinteistomaailma.fi/${apt.key}" target="_blank">View</a></p>
+      <p><strong>Agent Email:</strong> ${apt.agentEmail || apt.agencyEmail || 'Unknown'}</p>
+    `;
+    showLoadingScreen(false);
+  } catch (err) {
+    showLoadingScreen(false);
+    showAlert('Failed to load apartment details: ' + err.message);
+  }
+}
+
+// Update norr3CloseApartmentInfoModal to match the old logic (if needed, it’s already similar)
 function norr3CloseApartmentInfoModal(event) {
   document.getElementById('norr3-apartment-info-modal').style.display = 'none';
-  currentApartmentImageIndex = 0;
+}
+
+// Update other functions that trigger norr3ShowApartmentInfoFromKey (e.g., norr3ToggleApartmentSelection, renderCampaignList)
+function norr3ToggleApartmentSelection(e) {
+  const checkbox = e.target;
+  const key = checkbox.getAttribute('data-key');
+  if (checkbox.checked) {
+    if (!selectedApartments.some(a => a.key === key)) {
+      selectedApartments.push({ key: key });
+    }
+    // Update address fields when an apartment is selected
+    const apt = allApartments.find(a => a.key === key);
+    if (apt) {
+      document.getElementById('norr3-create-campaign-address').value = apt.address || '';
+      document.getElementById('norr3-create-campaign-postal-code').value = apt.postcode || '';
+      document.getElementById('norr3-create-campaign-city').value = apt.city || '';
+    }
+  } else {
+    selectedApartments = selectedApartments.filter(a => a.key !== key);
+    // Revert to the first selected apartment's details or clear if none selected
+    if (selectedApartments.length > 0) {
+      const firstApt = allApartments.find(a => a.key === selectedApartments[0].key);
+      document.getElementById('norr3-create-campaign-address').value = firstApt?.address || '';
+      document.getElementById('norr3-create-campaign-postal-code').value = firstApt?.postcode || '';
+      document.getElementById('norr3-create-campaign-city').value = firstApt?.city || '';
+    } else {
+      document.getElementById('norr3-create-campaign-address').value = '';
+      document.getElementById('norr3-create-campaign-postal-code').value = '';
+      document.getElementById('norr3-create-campaign-city').value = '';
+    }
+  }
+  // Add or update the info icon click handler for the selected apartment
+  const apartmentRows = document.querySelectorAll('.norr3-apartment-row, .norr3-apartment-item');
+  apartmentRows.forEach(row => {
+    const checkbox = row.querySelector('.norr3-apartment-checkbox');
+    if (checkbox && checkbox.getAttribute('data-key') === key) {
+      const infoIcon = row.querySelector('.fas.fa-info-circle');
+      if (infoIcon) {
+        infoIcon.onclick = () => norr3ShowApartmentInfoFromKey(key);
+      }
+    }
+  });
+}
+
+// Update renderCampaignList to include info icon for apartments
+function renderCampaignList(campaignsToRender = cachedCampaigns) {
+  const list = document.getElementById('norr3-campaign-list');
+  list.innerHTML = '';
+  if (!campaignsToRender.length) {
+    list.innerHTML = `<p role="status">${translations[currentLanguage].noCampaigns}</p>`;
+    return;
+  }
+  campaignsToRender.forEach(camp => {
+    const displayId = camp.campaign_id.slice(-4);
+    const totalBudget = (camp.budget_meta + camp.budget_display + camp.budget_pdooh);
+    const apartmentKeys = (camp.apartments || []).map(a => a.key).join(', ');
+    const apartmentLinks = (camp.apartments || []).map(a => `https://www.kiinteistomaailma.fi/${a.key}`).join(', ');
+    const row = document.createElement('div');
+    row.className = `norr3-table-row ${!camp.active ? 'norr3-row-off' : ''}`;
+    row.setAttribute('role', 'row');
+    row.innerHTML = `
+      <span role="cell">${displayId}</span>
+      <span role="cell">${camp.agent || ''}</span>
+      <span role="cell"><span class="norr3-apartment-key" data-key="${apartmentKeys}" data-address="${camp.apartments.map(a => `${a.key}: ${allApartments.find(apt => Number(apt.key) === Number(a.key))?.address || 'Unknown'}`).join(', ')}">${apartmentKeys || ''}</span></span>
+      <span role="cell">${formatDate(camp.campaign_start_date)}</span>
+      <span role="cell">${camp.campaign_end_date ? formatDate(camp.campaign_end_date) : translations[currentLanguage].ongoing}</span>
+      <span role="cell">
+        ${camp.channel_meta ? '<i class="fab fa-facebook" title="Meta"></i>' : ''}
+        ${camp.channel_display ? '<i class="fas fa-desktop" title="Display"></i>' : ''}
+        ${camp.channel_pdooh ? '<i class="fas fa-sign" title="PDOOH"></i>' : ''}
+      </span>
+      <span role="cell">${totalBudget.toFixed(2)}€</span>
+      <span role="cell">
+        <label class="norr3-toggle-slider">
+          <input type="checkbox" ${camp.active ? 'checked' : ''} onchange="norr3ToggleStatus('${camp.campaign_id}', this.checked)"/>
+          <span class="norr3-slider"></span>
+        </label>
+      </span>
+      <span role="cell">
+        <i class="fas fa-info-circle norr3-info-icon" onclick="norr3ShowCampaignInfo('${camp.campaign_id}')" tabindex="0" aria-label="View campaign details"></i>
+      </span>
+    `;
+    list.appendChild(row);
+    // Add event listeners for apartment key tooltips and clicks
+    const apartmentKey = row.querySelector('.norr3-apartment-key');
+    if (apartmentKey) {
+      apartmentKey.addEventListener('mouseover', showApartmentTooltip);
+      apartmentKey.addEventListener('mouseout', hideApartmentTooltip);
+      const keys = apartmentKey.getAttribute('data-key').split(', ');
+      keys.forEach(k => {
+        apartmentKey.addEventListener('click', () => norr3ShowApartmentInfoFromKey(k));
+      });
+    }
+  });
 }
 
 async function norr3ToggleStatus(campaignId, checked) {
