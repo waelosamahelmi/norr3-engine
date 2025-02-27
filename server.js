@@ -24,7 +24,7 @@ let campaigns = []; // In-memory campaigns (synced with Google Sheets)
 let users = [
   {
     email: 'seppo.kairikko@kiinteistomaailma.fi',
-    password: bcrypt.hashSync('password123', 10), // Hashed password
+    password: bcrypt.hashSync('defaultPassword123', 10), // Hashed password
     partnerName: 'Kiinteistömaailma Helsinki',
     agentName: 'Seppo Kairikko',
     agentKey: '1160ska',
@@ -33,7 +33,7 @@ let users = [
   },
   {
     email: 'admin@norr3.fi',
-    password: bcrypt.hashSync('Admin123', 10), // Hashed password
+    password: bcrypt.hashSync('adminPassword123', 10), // Hashed password
     partnerName: 'NØRR3',
     agentName: 'Admin User',
     agentKey: 'admin123',
@@ -58,29 +58,36 @@ async function refreshGoogleToken() {
 
 /*
   Function: syncToSheets
-  - Syncs campaigns to Google Sheets (Campaigns sheet only).
+  - Syncs campaigns to Google Sheets (LIVE sheet).
 */
 async function syncToSheets(data) {
   try {
     console.log('Campaigns data being synced to Sheets:', JSON.stringify(data, null, 2));
     const token = await refreshGoogleToken();
     const rows = data.map(item => [
-      item.id || '',
+      item.campaign_id || '',
+      item.partner_id || '',
       item.partner_name || '',
-      item.agent_name || '',
+      item.agent || '',
       item.agent_key || '',
-      item.address || '',
-      item.postal_code || '',
-      item.city || '',
-      item.start_date || '',
-      item.end_date || '',
-      item.status ? '1' : '0',
+      (item.apartments && item.apartments.length > 0 ? item.apartments[0].key : '') || '',
+      (item.apartments && item.apartments.length > 0 ? `https://www.kiinteistomaailma.fi/${item.apartments[0].key}` : '') || '',
+      item.campaign_address || '',
+      item.campaign_postal_code || '',
+      item.campaign_city || '',
+      (item.apartments && item.apartments.length > 0 ? item.apartments[0].campaign_radius : 0) || 0,
       item.channel_meta || 0,
       item.channel_display || 0,
       item.channel_pdooh || 0,
       (item.budget_meta || 0).toString(),
+      (item.budget_meta_daily || 0).toString(),
       (item.budget_display || 0).toString(),
-      (item.budget_pdooh || 0).toString()
+      (item.budget_display_daily || 0).toString(),
+      (item.budget_pdooh || 0).toString(),
+      (item.budget_pdooh_daily || 0).toString(),
+      item.campaign_start_date || '',
+      item.campaign_end_date || '',
+      item.active ? '1' : '0'
     ]);
     console.log('Rows being sent to Google Sheets:', JSON.stringify(rows, null, 2));
     await axios.post(
@@ -111,23 +118,30 @@ async function fetchFromSheets() {
     );
     const rows = response.data.values || [];
     return rows.slice(1).map(row => ({
-      id: row[0] || '',
-      partner_name: row[1] || '',
-      agent_name: row[2] || '',
-      agent_key: row[3] || '',
-      address: row[4] || '',
-      postal_code: row[5] || '',
-      city: row[6] || '',
-      start_date: row[7] || '',
-      end_date: row[8] || '',
-      status: row[9] === '1' || false,
-      channel_meta: parseInt(row[10]) || 0,
-      channel_display: parseInt(row[11]) || 0,
-      channel_pdooh: parseInt(row[12]) || 0,
-      budget_meta: parseFloat(row[13]) || 0,
-      budget_display: parseFloat(row[14]) || 0,
-      budget_pdooh: parseFloat(row[15]) || 0,
-      apartments: [] // Will be populated separately if needed
+      campaign_id: row[0] || '',
+      partner_id: row[1] || '',
+      partner_name: row[2] || '',
+      agent: row[3] || '',
+      agent_key: row[4] || '',
+      apartments: [{
+        key: row[5] || '',
+        campaign_radius: parseInt(row[10]) || 1500
+      }],
+      campaign_address: row[7] || '',
+      campaign_postal_code: row[8] || '',
+      campaign_city: row[9] || '',
+      campaign_start_date: row[20] || '',
+      campaign_end_date: row[21] || '',
+      active: row[22] === '1' || false,
+      channel_meta: parseInt(row[11]) || 0,
+      channel_display: parseInt(row[12]) || 0,
+      channel_pdooh: parseInt(row[13]) || 0,
+      budget_meta: parseFloat(row[14]) || 0,
+      budget_display: parseFloat(row[16]) || 0,
+      budget_pdooh: parseFloat(row[18]) || 0,
+      budget_meta_daily: parseFloat(row[15]) || 0,
+      budget_display_daily: parseFloat(row[17]) || 0,
+      budget_pdooh_daily: parseFloat(row[19]) || 0
     }));
   } catch (error) {
     console.error('Error fetching from LIVE in Google Sheets:', error);
@@ -153,7 +167,7 @@ app.get('/api/agent-info', async (req, res) => {
       }
     }
     if (!agentInfo) return res.status(404).json({ error: 'Agent not found' });
-    res.json(agentInfo);
+    res.json({ name: agentInfo.name, key: agentInfo.key, email: agentInfo.email });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -204,20 +218,20 @@ app.get('/api/campaigns', async (req, res) => {
   }
 });
 
-app.get('/api/campaigns/:id', async (req, res) => {
+app.get('/api/campaigns/:campaignId', async (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'No token provided' });
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     campaigns = await fetchFromSheets(); // Fetch from Sheets
-    const campaign = campaigns.find(c => c.id === req.params.id);
+    const campaign = campaigns.find(c => c.campaign_id === req.params.campaignId);
     if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
     if (decoded.role === 'partner' && campaign.agent_key.toLowerCase() !== decoded.agentKey.toLowerCase()) {
       return res.status(403).json({ error: 'Unauthorized access' });
     }
     res.json(campaign);
   } catch (error) {
-    console.error('Error in GET /api/campaigns/:id:', error);
+    console.error('Error in GET /api/campaigns/:campaignId:', error);
     res.status(500).json({ error: 'Failed to fetch campaign: ' + error.message });
   }
 });
@@ -230,23 +244,27 @@ app.post('/api/campaigns', async (req, res) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     const { campaign, apartments } = req.body;
     const newCampaign = {
-      id: Math.random().toString(36).substr(2, 9), // Simple unique ID for in-memory
+      campaign_id: campaign.campaign_id || Math.random().toString(36).substr(2, 9),
+      partner_id: campaign.partner_id || Math.random().toString(36).substr(2, 9),
       partner_name: campaign.partner_name || decoded.partnerName || 'Kiinteistömaailma Helsinki',
-      agent_name: campaign.agent_name || decoded.agentName || '',
+      agent: campaign.agent || decoded.agentName || '',
       agent_key: campaign.agent_key || decoded.agentKey || '',
-      address: campaign.address || '',
-      postal_code: campaign.postal_code || '',
-      city: campaign.city || '',
-      start_date: campaign.start_date || new Date().toISOString().split('T')[0],
-      end_date: campaign.end_date || null,
-      status: campaign.status !== undefined ? campaign.status : true,
+      apartments: apartments || [],
+      campaign_address: campaign.campaign_address || '',
+      campaign_postal_code: campaign.campaign_postal_code || '',
+      campaign_city: campaign.campaign_city || '',
+      campaign_start_date: campaign.campaign_start_date || new Date().toISOString().split('T')[0],
+      campaign_end_date: campaign.campaign_end_date || null,
+      active: campaign.active !== undefined ? campaign.active : true,
       channel_meta: campaign.channel_meta || 0,
       channel_display: campaign.channel_display || 0,
       channel_pdooh: campaign.channel_pdooh || 0,
       budget_meta: campaign.budget_meta || 0,
       budget_display: campaign.budget_display || 0,
       budget_pdooh: campaign.budget_pdooh || 0,
-      apartments: apartments || []
+      budget_meta_daily: campaign.budget_meta_daily || (campaign.budget_meta / 30).toFixed(2), // Default 30 days if no end date
+      budget_display_daily: campaign.budget_display_daily || (campaign.budget_display / 30).toFixed(2),
+      budget_pdooh_daily: campaign.budget_pdooh_daily || (campaign.budget_pdooh / 30).toFixed(2)
     };
     campaigns.push(newCampaign);
     await syncToSheets([newCampaign]);
@@ -257,62 +275,71 @@ app.post('/api/campaigns', async (req, res) => {
   }
 });
 
-app.put('/api/campaigns/:id', async (req, res) => {
+app.put('/api/campaigns/:campaignId', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'No token provided' });
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     const { campaign, apartments } = req.body;
-    const index = campaigns.findIndex(c => c.id === req.params.id);
+    const index = campaigns.findIndex(c => c.campaign_id === req.params.campaignId);
     if (index === -1) return res.status(404).json({ error: 'Campaign not found' });
     if (decoded.role === 'partner' && campaigns[index].agent_key.toLowerCase() !== decoded.agentKey.toLowerCase()) {
       return res.status(403).json({ error: 'Unauthorized access' });
     }
+    // Calculate days for daily budgets
+    const start = new Date(campaign.campaign_start_date);
+    const end = campaign.campaign_end_date ? new Date(campaign.campaign_end_date) : new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const days = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
+
     campaigns[index] = {
       ...campaigns[index],
-      id: req.params.id,
+      campaign_id: req.params.campaignId,
+      partner_id: campaign.partner_id || campaigns[index].partner_id || Math.random().toString(36).substr(2, 9),
       partner_name: campaign.partner_name || decoded.partnerName || 'Kiinteistömaailma Helsinki',
-      agent_name: campaign.agent_name || decoded.agentName || '',
+      agent: campaign.agent || decoded.agentName || '',
       agent_key: campaign.agent_key || decoded.agentKey || '',
-      address: campaign.address || '',
-      postal_code: campaign.postal_code || '',
-      city: campaign.city || '',
-      start_date: campaign.start_date || new Date().toISOString().split('T')[0],
-      end_date: campaign.end_date || null,
-      status: campaign.status !== undefined ? campaign.status : true,
-      channel_meta: campaign.channel_meta || 0,
-      channel_display: campaign.channel_display || 0,
-      channel_pdooh: campaign.channel_pdooh || 0,
-      budget_meta: campaign.budget_meta || 0,
-      budget_display: campaign.budget_display || 0,
-      budget_pdooh: campaign.budget_pdooh || 0,
-      apartments: apartments || []
+      apartments: apartments || campaigns[index].apartments,
+      campaign_address: campaign.campaign_address || campaigns[index].campaign_address || '',
+      campaign_postal_code: campaign.campaign_postal_code || campaigns[index].campaign_postal_code || '',
+      campaign_city: campaign.campaign_city || campaigns[index].campaign_city || '',
+      campaign_start_date: campaign.campaign_start_date || campaigns[index].campaign_start_date || new Date().toISOString().split('T')[0],
+      campaign_end_date: campaign.campaign_end_date || campaigns[index].campaign_end_date || null,
+      active: campaign.active !== undefined ? campaign.active : campaigns[index].active || true,
+      channel_meta: campaign.channel_meta || campaigns[index].channel_meta || 0,
+      channel_display: campaign.channel_display || campaigns[index].channel_display || 0,
+      channel_pdooh: campaign.channel_pdooh || campaigns[index].channel_pdooh || 0,
+      budget_meta: campaign.budget_meta || campaigns[index].budget_meta || 0,
+      budget_display: campaign.budget_display || campaigns[index].budget_display || 0,
+      budget_pdooh: campaign.budget_pdooh || campaigns[index].budget_pdooh || 0,
+      budget_meta_daily: (campaign.budget_meta || campaigns[index].budget_meta) / days || 0,
+      budget_display_daily: (campaign.budget_display || campaigns[index].budget_display) / days || 0,
+      budget_pdooh_daily: (campaign.budget_pdooh || campaigns[index].budget_pdooh) / days || 0
     };
     await syncToSheets(campaigns);
     res.json(campaigns[index]);
   } catch (error) {
-    console.error('Error in PUT /api/campaigns/:id:', error);
+    console.error('Error in PUT /api/campaigns/:campaignId:', error);
     res.status(500).json({ error: 'Failed to update campaign: ' + error.message });
   }
 });
 
-app.patch('/api/campaigns/status/:id', async (req, res) => {
+app.patch('/api/campaigns/status/:campaignId', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'No token provided' });
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const index = campaigns.findIndex(c => c.id === req.params.id);
+    const index = campaigns.findIndex(c => c.campaign_id === req.params.campaignId);
     if (index === -1) return res.status(404).json({ error: 'Campaign not found' });
     if (decoded.role === 'partner' && campaigns[index].agent_key.toLowerCase() !== decoded.agentKey.toLowerCase()) {
       return res.status(403).json({ error: 'Unauthorized access' });
     }
-    campaigns[index].status = req.body.status === true;
+    campaigns[index].active = req.body.active === true;
     await syncToSheets(campaigns);
     res.json(campaigns[index]);
   } catch (error) {
-    console.error('Error in PATCH /api/campaigns/status/:id:', error);
+    console.error('Error in PATCH /api/campaigns/status/:campaignId:', error);
     res.status(500).json({ error: 'Failed to update campaign status: ' + error.message });
   }
 });
