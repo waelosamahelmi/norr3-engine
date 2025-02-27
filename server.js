@@ -42,10 +42,7 @@ let users = [
   }
 ]; // Hardcoded in-memory users
 
-/*
-  Function: refreshGoogleToken
-  - Uses the refresh token to request a new access token from Google.
-*/
+// Refresh Google access token
 async function refreshGoogleToken() {
   const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
     client_id: GOOGLE_CLIENT_ID,
@@ -58,37 +55,78 @@ async function refreshGoogleToken() {
 
 /*
   Function: syncToSheets
-  - Syncs campaigns to Google Sheets (LIVE sheet).
+  - This function now iterates through each campaign’s apartments.
+  - For each apartment, it creates a row that includes:
+      campaign_id, partner_id, partner_name, agent, agent_key,
+      apartment key, URL, address, postcode, city, campaign_radius,
+      channel_meta, channel_display, channel_pdooh,
+      budget_meta, budget_meta_daily, budget_display, budget_display_daily,
+      budget_pdooh, budget_pdooh_daily, campaign_start_date, campaign_end_date, active.
 */
 async function syncToSheets(data) {
   try {
     console.log('Campaigns data being synced to Sheets:', JSON.stringify(data, null, 2));
     const token = await refreshGoogleToken();
-    const rows = data.map(item => [
-      item.campaign_id || '',
-      item.partner_id || '',
-      item.partner_name || '',
-      item.agent || '',
-      item.agent_key || '',
-      (item.apartments && item.apartments.length > 0 ? item.apartments[0].key : '') || '',
-      (item.apartments && item.apartments.length > 0 ? `https://www.kiinteistomaailma.fi/${item.apartments[0].key}` : '') || '',
-      item.campaign_address || '',
-      item.campaign_postal_code || '',
-      item.campaign_city || '',
-      (item.apartments && item.apartments.length > 0 ? item.apartments[0].campaign_radius : 0) || 0,
-      item.channel_meta || 0,
-      item.channel_display || 0,
-      item.channel_pdooh || 0,
-      (item.budget_meta || 0).toString(),
-      (item.budget_meta_daily || 0).toString(),
-      (item.budget_display || 0).toString(),
-      (item.budget_display_daily || 0).toString(),
-      (item.budget_pdooh || 0).toString(),
-      (item.budget_pdooh_daily || 0).toString(),
-      item.campaign_start_date || '',
-      item.campaign_end_date || '',
-      item.active ? '1' : '0'
-    ]);
+    let rows = [];
+    data.forEach(item => {
+      if (!item.apartments || item.apartments.length === 0) {
+        // Create one row with blank apartment details
+        rows.push([
+          item.campaign_id || '',
+          item.partner_id || '',
+          item.partner_name || '',
+          item.agent || '',
+          item.agent_key || '',
+          '', // apartment key
+          '', // URL
+          '', // address
+          '', // postcode
+          '', // city
+          0,  // campaign_radius
+          item.channel_meta || 0,
+          item.channel_display || 0,
+          item.channel_pdooh || 0,
+          (item.budget_meta || 0).toString(),
+          (item.budget_meta_daily || 0).toString(),
+          (item.budget_display || 0).toString(),
+          (item.budget_display_daily || 0).toString(),
+          (item.budget_pdooh || 0).toString(),
+          (item.budget_pdooh_daily || 0).toString(),
+          item.campaign_start_date || '',
+          item.campaign_end_date || '',
+          item.active ? '1' : '0'
+        ]);
+      } else {
+        // For each apartment, create a row
+        item.apartments.forEach(apt => {
+          rows.push([
+            item.campaign_id || '',
+            item.partner_id || '',
+            item.partner_name || '',
+            item.agent || '',
+            item.agent_key || '',
+            apt.key || '',
+            apt.url || (apt.key ? `https://www.kiinteistomaailma.fi/${apt.key}` : ''),
+            apt.address || '',
+            apt.postcode || '',
+            apt.city || '',
+            apt.campaign_radius || 1500,
+            item.channel_meta || 0,
+            item.channel_display || 0,
+            item.channel_pdooh || 0,
+            (item.budget_meta || 0).toString(),
+            (item.budget_meta_daily || 0).toString(),
+            (item.budget_display || 0).toString(),
+            (item.budget_display_daily || 0).toString(),
+            (item.budget_pdooh || 0).toString(),
+            (item.budget_pdooh_daily || 0).toString(),
+            item.campaign_start_date || '',
+            item.campaign_end_date || '',
+            item.active ? '1' : '0'
+          ]);
+        });
+      }
+    });
     console.log('Rows being sent to Google Sheets:', JSON.stringify(rows, null, 2));
     await axios.post(
       `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_ID}/values/LIVE!A1:append?valueInputOption=RAW`,
@@ -107,7 +145,7 @@ async function syncToSheets(data) {
 
 /*
   Function: fetchFromSheets
-  - Fetches campaigns from Google Sheets (LIVE sheet).
+  - Fetch campaigns from the LIVE sheet.
 */
 async function fetchFromSheets() {
   try {
@@ -117,6 +155,7 @@ async function fetchFromSheets() {
       { headers: { 'Authorization': `Bearer ${token}` } }
     );
     const rows = response.data.values || [];
+    // Note: Since rows now may contain multiple rows per campaign, you may need custom logic to reassemble campaigns.
     return rows.slice(1).map(row => ({
       campaign_id: row[0] || '',
       partner_id: row[1] || '',
@@ -125,11 +164,12 @@ async function fetchFromSheets() {
       agent_key: row[4] || '',
       apartments: [{
         key: row[5] || '',
+        url: row[6] || '',
+        address: row[7] || '',
+        postcode: row[8] || '',
+        city: row[9] || '',
         campaign_radius: parseInt(row[10]) || 1500
       }],
-      campaign_address: row[7] || '',
-      campaign_postal_code: row[8] || '',
-      campaign_city: row[9] || '',
       campaign_start_date: row[20] || '',
       campaign_end_date: row[21] || '',
       active: row[22] === '1' || false,
@@ -137,10 +177,10 @@ async function fetchFromSheets() {
       channel_display: parseInt(row[12]) || 0,
       channel_pdooh: parseInt(row[13]) || 0,
       budget_meta: parseFloat(row[14]) || 0,
-      budget_display: parseFloat(row[16]) || 0,
-      budget_pdooh: parseFloat(row[18]) || 0,
       budget_meta_daily: parseFloat(row[15]) || 0,
+      budget_display: parseFloat(row[16]) || 0,
       budget_display_daily: parseFloat(row[17]) || 0,
+      budget_pdooh: parseFloat(row[18]) || 0,
       budget_pdooh_daily: parseFloat(row[19]) || 0
     }));
   } catch (error) {
@@ -223,7 +263,7 @@ app.get('/api/campaigns/:campaignId', async (req, res) => {
   if (!token) return res.status(401).json({ error: 'No token provided' });
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    campaigns = await fetchFromSheets(); // Fetch from Sheets
+    campaigns = await fetchFromSheets();
     const campaign = campaigns.find(c => c.campaign_id === req.params.campaignId);
     if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
     if (decoded.role === 'partner' && campaign.agent_key.toLowerCase() !== decoded.agentKey.toLowerCase()) {
@@ -249,10 +289,8 @@ app.post('/api/campaigns', async (req, res) => {
       partner_name: campaign.partner_name || decoded.partnerName || 'Kiinteistömaailma Helsinki',
       agent: campaign.agent || decoded.agentName || '',
       agent_key: campaign.agent_key || decoded.agentKey || '',
+      // Expecting campaign.apartments is an array of full apartment objects (key, address, postcode, city, campaign_radius, url)
       apartments: apartments || [],
-      campaign_address: campaign.campaign_address || '',
-      campaign_postal_code: campaign.campaign_postal_code || '',
-      campaign_city: campaign.campaign_city || '',
       campaign_start_date: campaign.campaign_start_date || new Date().toISOString().split('T')[0],
       campaign_end_date: campaign.campaign_end_date || null,
       active: campaign.active !== undefined ? campaign.active : true,
@@ -262,7 +300,7 @@ app.post('/api/campaigns', async (req, res) => {
       budget_meta: campaign.budget_meta || 0,
       budget_display: campaign.budget_display || 0,
       budget_pdooh: campaign.budget_pdooh || 0,
-      budget_meta_daily: campaign.budget_meta_daily || (campaign.budget_meta / 30).toFixed(2), // Default 30 days if no end date
+      budget_meta_daily: campaign.budget_meta_daily || (campaign.budget_meta / 30).toFixed(2),
       budget_display_daily: campaign.budget_display_daily || (campaign.budget_display / 30).toFixed(2),
       budget_pdooh_daily: campaign.budget_pdooh_daily || (campaign.budget_pdooh / 30).toFixed(2)
     };
@@ -287,11 +325,9 @@ app.put('/api/campaigns/:campaignId', async (req, res) => {
     if (decoded.role === 'partner' && campaigns[index].agent_key.toLowerCase() !== decoded.agentKey.toLowerCase()) {
       return res.status(403).json({ error: 'Unauthorized access' });
     }
-    // Calculate days for daily budgets
     const start = new Date(campaign.campaign_start_date);
     const end = campaign.campaign_end_date ? new Date(campaign.campaign_end_date) : new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
     const days = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
-
     campaigns[index] = {
       ...campaigns[index],
       campaign_id: req.params.campaignId,
@@ -300,9 +336,6 @@ app.put('/api/campaigns/:campaignId', async (req, res) => {
       agent: campaign.agent || decoded.agentName || '',
       agent_key: campaign.agent_key || decoded.agentKey || '',
       apartments: apartments || campaigns[index].apartments,
-      campaign_address: campaign.campaign_address || campaigns[index].campaign_address || '',
-      campaign_postal_code: campaign.campaign_postal_code || campaigns[index].campaign_postal_code || '',
-      campaign_city: campaign.campaign_city || campaigns[index].campaign_city || '',
       campaign_start_date: campaign.campaign_start_date || campaigns[index].campaign_start_date || new Date().toISOString().split('T')[0],
       campaign_end_date: campaign.campaign_end_date || campaigns[index].campaign_end_date || null,
       active: campaign.active !== undefined ? campaign.active : campaigns[index].active || true,
@@ -345,7 +378,7 @@ app.patch('/api/campaigns/status/:campaignId', async (req, res) => {
 });
 
 /*
-  Users endpoints using in-memory storage (hardcoded in server.js).
+  Users endpoints using in-memory storage.
 */
 app.get('/api/users', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -454,11 +487,11 @@ app.get('/auth/google-callback', async (req, res) => {
       const newUser = {
         email: user.email,
         password: bcrypt.hashSync('defaultPassword123', 10),
-        partnerName: 'NØRR3', // Default for Google login as admin
+        partnerName: 'NØRR3',
         agentName: user.name || '',
         agentKey: 'google-' + Math.random().toString(36).substr(2, 9),
         agentImage: user.picture || '',
-        role: 'admin' // Force Google login as admin
+        role: 'admin'
       };
       users.push(newUser);
       existingUser = newUser;
@@ -466,7 +499,7 @@ app.get('/auth/google-callback', async (req, res) => {
     const token = jwt.sign(
       { 
         email: existingUser.email, 
-        role: 'admin', // Force role as admin for Google login
+        role: 'admin',
         partnerName: existingUser.partnerName, 
         agentName: existingUser.agentName, 
         agentKey: existingUser.agentKey 

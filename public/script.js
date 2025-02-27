@@ -46,7 +46,7 @@ const translations = {
     campaignDetails: "Campaign Details",
     add: "Add",
     moreInfo: "More Info",
-    fetchCampaigns: "Fetch",
+    fetchCampaigns: "Sync",
     invalidCredentials: "Wrong email or password, please try again.",
     noNewNotifications: "No new notifications.",
     campaignSaved: "Campaign saved!",
@@ -55,8 +55,8 @@ const translations = {
     successfullyAdded: "Successfully added apartment.",
     noApartments: "No apartments found for the specified agent email.",
     failedLoadUsers: "Failed to load users"
-},
-fi: {
+  },
+  fi: {
     marketingEngine: "NØRR3",
     loginWithGoogle: "Kirjaudu Googlella",
     login: "Kirjaudu",
@@ -111,8 +111,8 @@ fi: {
     successfullyAdded: "Asunto lisätty onnistuneesti.",
     noApartments: "Ei asuntoja löytynyt annetulle välittäjän sähköpostille.",
     failedLoadUsers: "Käyttäjien lataaminen epäonnistui"
-},
-sv: {
+  },
+  sv: {
     marketingEngine: "NØRR3",
     loginWithGoogle: "Logga in med Google",
     login: "Logga in",
@@ -167,8 +167,7 @@ sv: {
     successfullyAdded: "Lägenheten har lagts till.",
     noApartments: "Inga lägenheter hittades för angiven mäklar-e-post.",
     failedLoadUsers: "Det gick inte att ladda användare"
-}
-
+  }
 };
 let selectedApartments = [];
 let allApartments = [];
@@ -358,6 +357,7 @@ function renderCampaignList() {
   }
   cachedCampaigns.forEach(camp => {
     const displayId = camp.campaign_id.slice(-4);
+    // Calculate total budget (example: sum of meta, display, pdooh)
     const totalBudget = (camp.budget_meta + camp.budget_display + camp.budget_pdooh);
     const row = document.createElement('div');
     row.className = `norr3-table-row ${!camp.active ? 'norr3-row-off' : ''}`;
@@ -441,15 +441,17 @@ async function norr3ShowCampaignInfo(campaignId) {
       <p><strong>Partner Name:</strong> ${camp.partner_name || 'Kiinteistömaailma Helsinki'}</p>
       <p><strong>Agent:</strong> ${camp.agent || ''}</p>
       <p><strong>Agent Key:</strong> ${camp.agent_key || ''}</p>
-      <p><strong>Apartment Keys:</strong> ${(camp.apartments || []).map(a => a.key).join(', ') || 'None'}</p>
-      <p><strong>URL:</strong> ${camp.apartments && camp.apartments.length > 0 ? `https://www.kiinteistomaailma.fi/${camp.apartments[0].key}` : ''}</p>
-      <p><strong>Address:</strong> ${camp.campaign_address || ''}</p>
-      <p><strong>Postal Code:</strong> ${camp.campaign_postal_code || ''}</p>
-      <p><strong>City:</strong> ${camp.campaign_city || ''}</p>
-      <p><strong>Radius:</strong> ${(camp.apartments || []).map(a => a.campaign_radius || 0).join(', ') || 'N/A'} meters</p>
-      <p><strong>Channels:</strong> ${[camp.channel_meta ? 'Meta' : '', camp.channel_display ? 'Display' : '', camp.channel_pdooh ? 'PDOOH' : ''].filter(Boolean).join(', ') || 'None'}</p>
-      <p><strong>Budgets:</strong> Meta: ${camp.budget_meta || 0}€, Display: ${camp.budget_display || 0}€, PDOOH: ${camp.budget_pdooh || 0}€</p>
-      <p><strong>Daily Budgets:</strong> Meta: ${camp.budget_meta_daily || 0}€, Display: ${camp.budget_display_daily || 0}€, PDOOH: ${camp.budget_pdooh_daily || 0}€</p>
+      <p><strong>Apartment Details:</strong></p>
+      ${ (camp.apartments || []).map(a => `
+         <div>
+           <p><strong>Key:</strong> ${a.key}</p>
+           <p><strong>Address:</strong> ${a.address || ''}</p>
+           <p><strong>Postal Code:</strong> ${a.postcode || ''}</p>
+           <p><strong>City:</strong> ${a.city || ''}</p>
+           <p><strong>Radius:</strong> ${a.campaign_radius || 1500} meters</p>
+           <p><strong>URL:</strong> <a href="https://www.kiinteistomaailma.fi/${a.key}" target="_blank">Link</a></p>
+         </div>
+      `).join('') }
       <p><strong>Start Date:</strong> ${formatDate(camp.campaign_start_date)}</p>
       <p><strong>End Date:</strong> ${camp.campaign_end_date ? formatDate(camp.campaign_end_date) : 'Ongoing'}</p>
       <p><strong>Active:</strong> ${camp.active ? 'Yes' : 'No'}</p>
@@ -485,15 +487,14 @@ async function norr3CreateCampaign() {
   if (localStorage.getItem('role') === 'admin') {
     document.getElementById('norr3-agent-section').style.display = 'block';
     document.getElementById('norr3-campaign-budget-section').style.display = 'block';
-    document.getElementById('norr3-create-agent-email').value = ''; // Clear agent email for admin
+    document.getElementById('norr3-create-agent-email').value = '';
   } else {
     document.getElementById('norr3-agent-section').style.display = 'none';
     document.getElementById('norr3-campaign-budget-section').style.display = 'none';
-    // Automatically fetch apartments and populate address fields for the agent's email
     const agentEmail = localStorage.getItem('agentEmail') || '';
     if (agentEmail) {
       await norr3LoadApartmentsForAgent(agentEmail);
-      await norr3PopulateApartmentDetails(); // Populate address fields for agents
+      await norr3PopulateApartmentDetails();
     }
   }
 }
@@ -552,11 +553,9 @@ async function norr3LoadApartmentsForAgent(agentEmail) {
 
 async function norr3PopulateApartmentDetails() {
   if (allApartments.length > 0 && !selectedApartments.length) {
-    // Automatically select the first apartment for agents to populate details
     const firstApt = allApartments[0];
     selectedApartments.push({ key: firstApt.key, campaign_radius: 1500 });
     norr3RenderSelectedApartments();
-    // Populate address fields in the modal
     document.getElementById('norr3-create-campaign-address').value = firstApt.address || '';
     document.getElementById('norr3-create-campaign-postal-code').value = firstApt.postcode || '';
     document.getElementById('norr3-create-campaign-city').value = firstApt.city || '';
@@ -566,7 +565,6 @@ async function norr3PopulateApartmentDetails() {
 function norr3CloseCreateModal(event) {
   document.getElementById('norr3-create-modal').style.display = 'none';
   selectedApartments = [];
-  // Clear address fields when closing
   document.getElementById('norr3-create-campaign-address').value = '';
   document.getElementById('norr3-create-campaign-postal-code').value = '';
   document.getElementById('norr3-create-campaign-city').value = '';
@@ -608,14 +606,11 @@ async function norr3EditCampaign(campaignId) {
       key: a.key,
       campaign_radius: a.campaign_radius || 1500
     }));
+    norr3RenderSelectedApartments();
     if (localStorage.getItem('role') === 'admin') {
-      norr3RenderSelectedApartments();
-      // Pre-fill agent email if it exists in the campaign
       const agentEmail = allApartments.find(a => a.agentEmail === campaign.agent_key)?.agentEmail || '';
       document.getElementById('norr3-create-agent-email').value = agentEmail;
     } else {
-      norr3RenderSelectedApartments();
-      // Populate address fields for agents in edit mode
       const firstApt = allApartments.find(a => a.key === selectedApartments[0]?.key);
       if (firstApt) {
         document.getElementById('norr3-create-campaign-address').value = firstApt.address || '';
@@ -633,7 +628,6 @@ async function norr3EditCampaign(campaignId) {
 function norr3CloseModal(event) {
   document.getElementById('norr3-edit-modal').style.display = 'none';
   selectedApartments = [];
-  // Clear address fields when closing
   document.getElementById('norr3-create-campaign-address').value = '';
   document.getElementById('norr3-create-campaign-postal-code').value = '';
   document.getElementById('norr3-create-campaign-city').value = '';
@@ -692,13 +686,11 @@ async function norr3SaveCampaign() {
     showLoadingScreen(false);
     return;
   }
-
   let agentEmail = localStorage.getItem('role') === 'admin'
     ? document.getElementById('norr3-create-agent-email')?.value.trim().toLowerCase() || ''
     : (localStorage.getItem('agentEmail') || '').toLowerCase().trim();
   let agentInfo = {};
 
-  // Fetch agent info if agentEmail exists
   if (agentEmail) {
     try {
       const agentRes = await fetch(`/api/agent-info?email=${encodeURIComponent(agentEmail)}`, {
@@ -714,67 +706,52 @@ async function norr3SaveCampaign() {
     }
   }
 
-  let campAddress = '', campPost = '', campCity = ''; // Use empty strings or real values
-  const firstApt = allApartments.find(a => a.key === selectedApartments[0].key);
-  if (firstApt) {
-    campAddress = firstApt.address || '';
-    campPost = firstApt.postcode || '';
-    campCity = firstApt.city || '';
-  } else {
-    // Use input fields for address if manually entered by admin
-    campAddress = document.getElementById('norr3-create-campaign-address')?.value || '';
-    campPost = document.getElementById('norr3-create-campaign-postal-code')?.value || '';
-    campCity = document.getElementById('norr3-create-campaign-city')?.value || '';
-  }
+  // Build the apartments array with full details from allApartments
+  const apartmentsData = selectedApartments.map(apt => {
+    const fullApt = allApartments.find(a => a.key === apt.key) || {};
+    return {
+      key: apt.key,
+      campaign_radius: apt.campaign_radius || 1500,
+      address: fullApt.address || '',
+      postcode: fullApt.postcode || '',
+      city: fullApt.city || '',
+      url: fullApt.key ? `https://www.kiinteistomaailma.fi/${fullApt.key}` : ''
+    };
+  });
 
-  const combinedChannels = new Set();
-  let combinedBudget = { meta: 0, display: 0, pdooh: 0 };
-  if (localStorage.getItem('role') === 'admin') {
-    combinedBudget.meta = parseFloat(document.getElementById('norr3-create-budget-meta').value) || 0;
-    combinedBudget.display = parseFloat(document.getElementById('norr3-create-budget-display').value) || 0;
-    combinedBudget.pdooh = parseFloat(document.getElementById('norr3-create-budget-pdooh').value) || 0;
-    ['meta', 'display', 'pdooh'].forEach(ch => {
-      const checkbox = document.getElementById(`norr3-create-channel-${ch}`);
-      if (checkbox && checkbox.checked) combinedChannels.add(ch);
-    });
-  }
-  const decoded = jwtDecode(token);
-  const agentName = agentInfo.name || decoded.agentName || '';
-  const agentKey = agentInfo.key || decoded.agentKey || '';
-
-  // Calculate days for daily budgets (default to 30 if ongoing or no end date)
+  // Calculate daily budgets
   const start = new Date(startDate);
   const end = ongoing || !endDate ? new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000) : new Date(endDate);
   const days = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
 
+  const decoded = jwtDecode(token);
+  const agentName = agentInfo.name || decoded.agentName || '';
+  const agentKey = agentInfo.key || decoded.agentKey || '';
+
   const campaignData = {
-    campaign_id: campaignId || Math.random().toString(36).substr(2, 9), // Simple unique ID for campaign_id
-    partner_id: Math.random().toString(36).substr(2, 9), // Simple unique ID for partner_id
+    campaign_id: campaignId || Math.random().toString(36).substr(2, 9),
+    partner_id: Math.random().toString(36).substr(2, 9),
     partner_name: localStorage.getItem('partnerName') || 'Kiinteistömaailma Helsinki',
     agent: agentName,
     agent_key: agentKey,
-    campaign_address: campAddress,
-    campaign_postal_code: campPost,
-    campaign_city: campCity,
+    // Instead of using separate fields for address, postcode, city, we now include all apartments:
+    // The server side should then create a row for each apartment.
+    apartments: apartmentsData,
     campaign_start_date: startDate,
     campaign_end_date: ongoing ? null : endDate,
     active: true,
-    channel_meta: combinedChannels.has('meta') ? 1 : 0,
-    channel_display: combinedChannels.has('display') ? 1 : 0,
-    channel_pdooh: combinedChannels.has('pdooh') ? 1 : 0,
-    budget_meta: combinedBudget.meta,
-    budget_display: combinedBudget.display,
-    budget_pdooh: combinedBudget.pdooh,
-    budget_meta_daily: (combinedBudget.meta / days).toFixed(2),
-    budget_display_daily: (combinedBudget.display / days).toFixed(2),
-    budget_pdooh_daily: (combinedBudget.pdooh / days).toFixed(2)
+    channel_meta: parseInt(document.getElementById('norr3-create-channel-meta')?.checked ? 1 : 0) || 0,
+    channel_display: parseInt(document.getElementById('norr3-create-channel-display')?.checked ? 1 : 0) || 0,
+    channel_pdooh: parseInt(document.getElementById('norr3-create-channel-pdooh')?.checked ? 1 : 0) || 0,
+    budget_meta: parseFloat(document.getElementById('norr3-create-budget-meta')?.value) || 0,
+    budget_display: parseFloat(document.getElementById('norr3-create-budget-display')?.value) || 0,
+    budget_pdooh: parseFloat(document.getElementById('norr3-create-budget-pdooh')?.value) || 0,
+    budget_meta_daily: (parseFloat(document.getElementById('norr3-create-budget-meta')?.value) || 0) / days,
+    budget_display_daily: (parseFloat(document.getElementById('norr3-create-budget-display')?.value) || 0) / days,
+    budget_pdooh_daily: (parseFloat(document.getElementById('norr3-create-budget-pdooh')?.value) || 0) / days
   };
-  const apartmentsData = selectedApartments.map(apt => ({
-    key: apt.key,
-    campaign_radius: apt.campaign_radius || 1500
-  })) || [];
+
   console.log('Campaign data being sent:', JSON.stringify(campaignData, null, 2));
-  console.log('Apartments data being sent:', JSON.stringify(apartmentsData, null, 2));
   try {
     const method = campaignId ? 'PUT' : 'POST';
     const res = await fetch(`/api/campaigns/${method === 'PUT' ? campaignId : ''}`, {
@@ -796,7 +773,7 @@ async function norr3SaveCampaign() {
       document.getElementById('norr3-edit-modal').style.display = 'none';
     }
     selectedApartments = [];
-    await norr3FetchCampaigns(); // Refresh from Sheets
+    await norr3FetchCampaigns();
     norr3UpdateMetrics();
     norr3CheckNotifications();
     showAlert(translations[currentLanguage].campaignSaved);
@@ -902,7 +879,6 @@ function norr3ToggleApartmentSelection(e) {
     if (!selectedApartments.some(a => a.key === key)) {
       selectedApartments.push({ key: key, campaign_radius: parseInt(radiusInput.value) || 1500 });
     }
-    // Update address fields when an apartment is selected
     const apt = allApartments.find(a => a.key === key);
     if (apt) {
       document.getElementById('norr3-create-campaign-address').value = apt.address || '';
@@ -913,7 +889,6 @@ function norr3ToggleApartmentSelection(e) {
     radiusInput.disabled = true;
     radiusInput.style.opacity = '0.5';
     selectedApartments = selectedApartments.filter(a => a.key !== key);
-    // Revert to the first selected apartment's details or clear if none selected
     if (selectedApartments.length > 0) {
       const firstApt = allApartments.find(a => a.key === selectedApartments[0].key);
       document.getElementById('norr3-create-campaign-address').value = firstApt?.address || '';
@@ -936,8 +911,6 @@ function norr3UpdateApartmentRadius(e) {
   }
 }
 
-// --- Apartment Info Popup --- //
-
 async function norr3ShowApartmentInfo(key) {
   const token = localStorage.getItem('token');
   if (!token) {
@@ -959,7 +932,7 @@ async function norr3ShowApartmentInfo(key) {
       <p><strong>Address:</strong> ${apt.address || ''}</p>
       <p><strong>Postal Code:</strong> ${apt.postcode || ''}</p>
       <p><strong>City:</strong> ${apt.city || ''}</p>
-      <div class="norr3-image-slider" style="overflow-x: auto; white-space: nowrap;">
+      <div class="norr3-image-slider">
         ${imageSlider}
       </div>
     `;
@@ -979,7 +952,7 @@ function norr3CloseApartmentInfoModal(event) {
 
 function norr3UserManagement() {
   document.getElementById('norr3-user-management-modal').style.display = 'flex';
-  norr3RenderUsers(); // Fetch and display users from server in-memory
+  norr3RenderUsers();
 }
 
 async function norr3RenderUsers() {
@@ -992,7 +965,6 @@ async function norr3RenderUsers() {
     cachedUsers = await res.json();
     const list = document.getElementById('norr3-user-list');
     list.innerHTML = '';
-    // Build table header
     const header = document.createElement('div');
     header.className = 'norr3-user-item norr3-user-header';
     header.innerHTML = `
@@ -1005,7 +977,6 @@ async function norr3RenderUsers() {
       <span>Actions</span>
     `;
     list.appendChild(header);
-    // Build rows for each user
     cachedUsers.forEach(u => {
       const row = document.createElement('div');
       row.className = 'norr3-user-item';
@@ -1030,10 +1001,8 @@ async function norr3RenderUsers() {
   }
 }
 
-// Open the Add User modal
 function norr3OpenAddUser() {
   document.getElementById('norr3-add-user-modal').style.display = 'flex';
-  // Clear form fields
   document.getElementById('norr3-add-user-email').value = '';
   document.getElementById('norr3-add-user-password').value = '';
   document.getElementById('norr3-add-user-name').value = '';
@@ -1042,22 +1011,15 @@ function norr3OpenAddUser() {
   document.getElementById('norr3-add-user-role').value = 'partner';
 }
 
-// Close the Add User modal
 function norr3CloseAddUser() {
   document.getElementById('norr3-add-user-modal').style.display = 'none';
 }
 
-// Toggle password visibility in the Add User modal
 function norr3TogglePasswordVisibility(inputId) {
   const input = document.getElementById(inputId);
-  if (input.type === 'password') {
-    input.type = 'text';
-  } else {
-    input.type = 'password';
-  }
+  input.type = input.type === 'password' ? 'text' : 'password';
 }
 
-// Auto-fill user details (calls an API endpoint for agent autofill)
 async function norr3AutoFillUser() {
   const emailInput = document.getElementById('norr3-add-user-email');
   const email = emailInput.value.trim();
@@ -1074,11 +1036,9 @@ async function norr3AutoFillUser() {
     });
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
-    // Fill in the rest of the fields
     document.getElementById('norr3-add-user-name').value = data.agentName || '';
     document.getElementById('norr3-add-user-agent-key').value = data.agentKey || '';
     document.getElementById('norr3-add-user-agent-image').value = data.agentImage || '';
-    // Suggest a random password (you can improve this logic)
     document.getElementById('norr3-add-user-password').value = Math.random().toString(36).slice(-8);
     showAlert(`Auto-filled details for ${data.email}`);
   } catch (err) {
@@ -1113,7 +1073,7 @@ async function norr3AddUserAccount() {
       body: JSON.stringify(newUser)
     });
     if (!res.ok) throw new Error(await res.text());
-    await norr3FetchUsers(); // Refresh users from server in-memory
+    await norr3FetchUsers();
     showAlert('User added successfully!');
     norr3CloseAddUser();
   } catch (err) {
@@ -1136,7 +1096,7 @@ async function norr3RemoveUser(email) {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     if (!res.ok) throw new Error(await res.text());
-    await norr3FetchUsers(); // Refresh users from server in-memory
+    await norr3FetchUsers();
     showAlert('User removed successfully!');
   } catch (err) {
     showAlert('Error removing user: ' + err.message);
@@ -1174,7 +1134,7 @@ async function norr3EditUser(email) {
       body: JSON.stringify(user)
     });
     if (!res.ok) throw new Error(await res.text());
-    await norr3FetchUsers(); // Refresh users from server in-memory
+    await norr3FetchUsers();
     showAlert('User edited successfully!');
   } catch (err) {
     showAlert('Error editing user: ' + err.message);
@@ -1182,8 +1142,6 @@ async function norr3EditUser(email) {
     showLoadingScreen(false);
   }
 }
-
-// --- Utility Functions --- //
 
 function jwtDecode(token) {
   try {
@@ -1254,8 +1212,8 @@ window.onload = function() {
       const list = document.getElementById('norr3-campaign-list');
       list.innerHTML = `<p role="status">${translations[currentLanguage].noCampaigns}</p>`;
     }
-    norr3FetchUsers(); // Fetch initial users from server in-memory
-    norr3FetchCampaigns(); // Fetch initial campaigns from Sheets
+    norr3FetchUsers();
+    norr3FetchCampaigns();
   } else if (localStorage.getItem('norr3LoggedIn') === 'true') {
     document.getElementById('norr3-container').style.display = 'block';
     const page = localStorage.getItem('norr3Page') || 'campaign-setup';
@@ -1274,8 +1232,8 @@ window.onload = function() {
       buttonContainer.innerHTML = `<button class="norr3-btn-primary" onclick="norr3FetchCampaigns()" data-translate="fetchCampaigns">${translations[currentLanguage].fetchCampaigns}</button>`;
       list.parentNode.insertBefore(buttonContainer, list);
     }
-    norr3FetchUsers(); // Fetch initial users from server in-memory
-    norr3FetchCampaigns(); // Fetch initial campaigns from Sheets
+    norr3FetchUsers();
+    norr3FetchCampaigns();
   } else {
     showSection('norr3-login-section');
     if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
