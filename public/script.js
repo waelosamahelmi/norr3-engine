@@ -408,33 +408,120 @@ function renderCampaignList(campaignsToRender = cachedCampaigns) {
     key.addEventListener('click', () => norr3ShowApartmentInfoFromKey(key.getAttribute('data-key').split(', ')[0]));
   });
 }
+// Update the updateUserProfile function
 function updateUserProfile() {
   const token = localStorage.getItem('token');
   if (token) {
     const decoded = jwtDecode(token);
     const email = decoded.email || localStorage.getItem('email') || '';
-    const agentImage = decoded.agentImage || localStorage.getItem('agentImage') || 'https://via.placeholder.com/40';
 
-    // Set the profile picture
-    const profilePic = document.getElementById('norr3-profile-pic');
-    if (profilePic) {
-      profilePic.src = agentImage;
-      profilePic.alt = `Profile of ${email}`;
-    }
-
-    // Set the tooltip with the email
-    const profileContainer = document.getElementById('norr3-user-profile');
-    if (profileContainer) {
-      profileContainer.title = email; // Use title for native browser tooltip
+    // Set the tooltip with the email for the user icon
+    const userIcon = document.getElementById('norr3-user-icon');
+    if (userIcon) {
+      userIcon.title = email; // Use title for native browser tooltip
     }
   } else {
-    // Hide profile if not logged in
-    const profileContainer = document.getElementById('norr3-user-profile');
-    if (profileContainer) {
-      profileContainer.style.display = 'none';
+    // Hide icon if not logged in
+    const userIcon = document.getElementById('norr3-user-icon');
+    if (userIcon) {
+      userIcon.style.display = 'none';
     }
   }
 }
+
+// Update window.onload to call updateUserProfile
+window.onload = function() {
+  showLoadingScreen(true); // Show loading screen immediately on page load
+  setLanguage(currentLanguage);
+  const urlParams = new URLSearchParams(window.location.search);
+  const token = urlParams.get('token');
+  const service = urlParams.get('service');
+  if (token) {
+    localStorage.setItem('token', token);
+    localStorage.setItem('norr3LoggedIn', 'true');
+    localStorage.setItem('role', service === 'norr3' ? 'admin' : 'partner');
+    localStorage.setItem('partnerName', service === 'norr3' ? 'NØRR3' : 'Kiinteistömaailma Helsinki');
+    localStorage.setItem('email', 'seppo.kairikko@kiinteistomaailma.fi');
+    if (localStorage.getItem('role') !== 'admin') {
+      localStorage.setItem('agentEmail', 'seppo.kairikko@kiinteistomaailma.fi');
+    }
+    document.getElementById('norr3-container').style.display = 'block';
+    if (localStorage.getItem('role') === 'admin') {
+      showSection('norr3-service-selection');
+      document.getElementById('norr3-user-management-btn').style.display = 'inline-block';
+      document.getElementById('norr3-back-button').style.display = 'inline-block';
+    } else {
+      showSection('norr3-campaign-setup');
+      document.getElementById('norr3-user-management-btn').style.display = 'none';
+      document.getElementById('norr3-back-button').style.display = 'none';
+      const list = document.getElementById('norr3-campaign-list');
+      list.innerHTML = `<p role="status">${translations[currentLanguage].noCampaigns}</p>`;
+    }
+    norr3FetchUsers(); // Fetch initial users from server in-memory
+    norr3FetchCampaigns()
+      .then(() => {
+        showLoadingScreen(false); // Hide loading screen only after campaigns are fetched and dashboard is loaded
+        updateUserProfile(); // Set tooltip for user icon after login
+      })
+      .catch(() => showLoadingScreen(false)); // Ensure loading screen hides on error
+  } else if (localStorage.getItem('norr3LoggedIn') === 'true') {
+    document.getElementById('norr3-container').style.display = 'block';
+    const page = localStorage.getItem('norr3Page') || 'campaign-setup';
+    if (localStorage.getItem('role') === 'admin') {
+      showSection(page === 'campaign-setup' ? 'norr3-campaign-setup' : 'norr3-service-selection');
+      document.getElementById('norr3-user-management-btn').style.display = 'inline-block';
+      document.getElementById('norr3-back-button').style.display = 'inline-block';
+    } else {
+      showSection('norr3-campaign-setup');
+      document.getElementById('norr3-user-management-btn').style.display = 'none';
+      document.getElementById('norr3-back-button').style.display = 'none';
+      const list = document.getElementById('norr3-campaign-list');
+      list.innerHTML = `<p role="status">${translations[currentLanguage].noCampaigns}</p>`;
+      const buttonContainer = document.createElement('div');
+      buttonContainer.className = 'norr3-fetch-button';
+      buttonContainer.innerHTML = `<button class="norr3-btn-primary" onclick="norr3FetchCampaigns()" data-translate="fetchCampaigns">${translations[currentLanguage].fetchCampaigns}</button>`;
+      list.parentNode.insertBefore(buttonContainer, list);
+    }
+    norr3FetchUsers(); // Fetch initial users from server in-memory
+    norr3FetchCampaigns()
+      .then(() => {
+        showLoadingScreen(false); // Hide loading screen only after campaigns are fetched and dashboard is loaded
+        updateUserProfile(); // Set tooltip for user icon for existing session
+      })
+      .catch(() => showLoadingScreen(false)); // Ensure loading screen hides on error
+  } else {
+    showSection('norr3-login-section');
+    if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+      showAlert(translations[currentLanguage].pleaseLogin);
+    }
+    showLoadingScreen(false); // Hide loading screen if not logged in
+  }
+  document.getElementById('norr3-search-campaigns').addEventListener('input', filterCampaigns);
+  document.getElementById('norr3-filter-status').addEventListener('change', filterCampaigns);
+  if (localStorage.getItem('role') === 'admin') {
+    norr3RenderUsers();
+  }
+  updateUserProfile(); // Call on page load to handle profile updates
+}
+
+// Update norr3Logout to hide the icon when logging out
+function norr3Logout() {
+  showLoadingScreen(true);
+  localStorage.clear();
+  cachedCampaigns = []; // Clear in-memory campaigns
+  cachedUsers = [];     // Clear in-memory users
+  document.getElementById('norr3-container').style.display = 'none';
+  showSection('norr3-login-section');
+  document.getElementById('norr3-email').value = '';
+  document.getElementById('norr3-password').value = '';
+  const userIcon = document.getElementById('norr3-user-icon');
+  if (userIcon) {
+    userIcon.style.display = 'none';
+  }
+  showLoadingScreen(false);
+  showAlert('Logged out successfully!');
+}
+
 function showApartmentTooltip(e) {
   const tooltip = document.createElement('div');
   tooltip.className = 'norr3-tooltip';
