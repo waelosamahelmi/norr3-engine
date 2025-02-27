@@ -46,7 +46,7 @@ const translations = {
     campaignDetails: "Campaign Details",
     add: "Add",
     moreInfo: "More Info",
-    fetchCampaigns: "Sync",
+    fetchCampaigns: "Fetch",
     invalidCredentials: "Wrong email or password, please try again.",
     noNewNotifications: "No new notifications.",
     campaignSaved: "Campaign saved!",
