@@ -1,10 +1,10 @@
+/* Global Styles */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
   font-family: 'RocGrotesk-Regular', sans-serif;
 }
-
 .norr3-body {
   background: linear-gradient(to bottom right, #6a1b9a, #ba68c8);
   color: #1a2027;
@@ -16,6 +16,7 @@
   justify-content: center;
 }
 
+/* Logo */
 .norr3-logo-wrapper {
   padding: 20px;
   text-align: center;
@@ -24,12 +25,12 @@
   left: 50%;
   transform: translateX(-50%);
 }
-
 .norr3-login-logo {
   width: 120px;
   height: auto;
 }
 
+/* Main Container */
 .norr3-container {
   max-width: 1400px;
   width: 95%;
@@ -43,25 +44,22 @@
   display: none;
   overflow-y: auto;
 }
-
 .norr3-container::-webkit-scrollbar {
   width: 8px;
 }
-
 .norr3-container::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 4px;
 }
-
 .norr3-container::-webkit-scrollbar-thumb {
   background: #6a1b9a;
   border-radius: 4px;
 }
-
 .norr3-container::-webkit-scrollbar-thumb:hover {
   background: #4a148c;
 }
 
+/* Alert */
 .norr3-alert {
   position: fixed;
   top: 10px;
@@ -77,31 +75,27 @@
   cursor: pointer;
   overflow-y: auto;
 }
-
 .norr3-alert::-webkit-scrollbar {
   width: 8px;
 }
-
 .norr3-alert::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 4px;
 }
-
 .norr3-alert::-webkit-scrollbar-thumb {
   background: #6a1b9a;
   border-radius: 4px;
 }
-
 .norr3-alert::-webkit-scrollbar-thumb:hover {
   background: #4a148c;
 }
 
+/* Language Switcher */
 .norr3-language-switcher {
   text-align: center;
   margin-top: 20px;
   position: static;
 }
-
 .norr3-language-switcher a {
   color: #fff;
   text-decoration: none;
@@ -109,31 +103,29 @@
   padding: 0 5px;
   cursor: pointer;
 }
-
 .norr3-language-switcher a:hover,
 .norr3-language-switcher a:focus {
   color: #e0e0e0;
   outline: 2px solid #e0e0e0;
 }
 
+/* Animations */
 .norr3-fade-in {
   animation: fadeIn 0.5s ease-in-out;
 }
-
 @keyframes fadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
-
 .norr3-slide-in {
   animation: slideIn 0.5s ease-in-out;
 }
-
 @keyframes slideIn {
   from { transform: translateY(-20px); opacity: 0; }
   to   { transform: translateY(0); opacity: 1; }
 }
 
+/* Login Box */
 .norr3-login-box {
   background: #fff;
   padding: 30px;
@@ -147,31 +139,27 @@
   z-index: 1;
   overflow-y: auto;
 }
-
 .norr3-login-box::-webkit-scrollbar {
   width: 8px;
 }
-
 .norr3-login-box::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 4px;
 }
-
 .norr3-login-box::-webkit-scrollbar-thumb {
   background: #6a1b9a;
   border-radius: 4px;
 }
-
 .norr3-login-box::-webkit-scrollbar-thumb:hover {
   background: #4a148c;
 }
 
+/* Buttons */
 .norr3-btn-google,
 .norr3-btn-service,
 .norr3-btn-primary,
 .norr3-btn-back,
-.norr3-btn-logout,
-.norr3-dropdown-btn {
+.norr3-btn-logout {
   background: #6a1b9a;
   color: #fff;
   border: none;
@@ -183,26 +171,23 @@
   margin: 10px 0;
   transition: background 0.3s ease, transform 0.3s ease;
 }
-
 .norr3-btn-google:hover,
 .norr3-btn-service:hover,
 .norr3-btn-primary:hover,
 .norr3-btn-back:hover,
-.norr3-btn-logout:hover,
-.norr3-dropdown-btn:hover {
+.norr3-btn-logout:hover {
   background: #4a148c;
   transform: scale(1.05);
 }
-
 .norr3-btn-google:focus,
 .norr3-btn-service:focus,
 .norr3-btn-primary:focus,
 .norr3-btn-back:focus,
-.norr3-btn-logout:focus,
-.norr3-dropdown-btn:focus {
+.norr3-btn-logout:focus {
   outline: 2px solid #ba68c8;
 }
 
+/* Form Inputs */
 input[type="email"],
 input[type="password"],
 input[type="text"],
@@ -219,39 +204,37 @@ select {
   box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
 }
 
+/* Dashboard Header & Controls */
 .norr3-dashboard-header {
   margin-bottom: 20px;
 }
-
 .norr3-h2, .norr3-h3, .norr3-h4 {
   color: #1a2027;
   margin-bottom: 15px;
 }
-
 .norr3-dashboard-controls {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-top: 10px;
 }
-
 .norr3-left-controls, .norr3-right-controls {
   display: flex;
   gap: 10px;
   align-items: center;
 }
 
+/* Metrics */
 .norr3-metrics {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(250px,1fr));
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   margin: 20px 0;
   padding: 15px;
   background: #f5f7fa;
   border-radius: 8px;
   overflow-y: auto;
 }
-
 .norr3-metric-card {
   background: #fff;
   padding: 10px;
@@ -261,26 +244,24 @@ select {
   overflow-y: auto;
 }
 
+/* Campaign Table */
 .norr3-campaign-table {
   width: 100%;
   margin-top: 20px;
   overflow-y: auto;
 }
-
 .norr3-table-header {
   display: grid;
   grid-template-columns: 1fr 1fr 2fr 1fr 1fr 1fr 1fr 1fr 1fr;
   gap: 10px;
   padding: 10px 0;
 }
-
 .norr3-table-body {
   display: grid;
   grid-template-columns: 1fr;
   gap: 10px;
   padding: 10px 0;
 }
-
 .norr3-table-row {
   display: grid;
   grid-template-columns: 1fr 1fr 2fr 1fr 1fr 1fr 1fr 1fr 1fr;
@@ -292,29 +273,28 @@ select {
   align-items: center;
   transition: background 0.3s ease;
 }
-
 .norr3-table-row:hover {
   background: #f5f7fa;
 }
-
 .norr3-row-off {
   background: #ffebee;
   opacity: 0.8;
 }
 
+/* Channel Icons */
 .norr3-channel-icons i {
   font-size: 18px;
   margin: 0 5px;
   color: #6a1b9a;
   cursor: help;
 }
-
 .norr3-channel-icons i:hover,
 .norr3-channel-icons i:focus {
   color: #ba68c8;
   outline: 2px solid #ba68c8;
 }
 
+/* Toggle Slider */
 .norr3-toggle-slider {
   display: inline-flex;
   align-items: center;
@@ -324,17 +304,17 @@ select {
   cursor: pointer;
   vertical-align: middle;
 }
-
 .norr3-toggle-slider input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
-  width: 0; height: 0;
-  margin: 0; padding: 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
   opacity: 0;
   pointer-events: none;
   position: absolute;
 }
-
 .norr3-slider {
   position: relative;
   width: 36px;
@@ -343,7 +323,6 @@ select {
   border-radius: 16px;
   transition: 0.3s;
 }
-
 .norr3-slider:before {
   content: '';
   position: absolute;
@@ -355,15 +334,14 @@ select {
   border-radius: 50%;
   transition: 0.3s;
 }
-
 input[type="checkbox"]:checked + .norr3-slider {
   background: #4a148c;
 }
-
 input[type="checkbox"]:checked + .norr3-slider:before {
   transform: translateX(20px);
 }
 
+/* Icons for Edit/Info */
 .norr3-edit-icon, .norr3-info-icon {
   color: #6a1b9a;
   cursor: pointer;
@@ -371,7 +349,6 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   margin: 0 5px;
   transition: color 0.3s ease;
 }
-
 .norr3-edit-icon:hover,
 .norr3-info-icon:hover,
 .norr3-edit-icon:focus,
@@ -380,17 +357,19 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   outline: 2px solid #ba68c8;
 }
 
+/* Modal Styles */
 .norr3-modal {
   display: none;
   position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   background: rgba(0,0,0,0.5);
   z-index: 1000;
   justify-content: center;
   align-items: center;
 }
-
 .norr3-modal-content {
   background: #fff;
   padding: 20px;
@@ -400,45 +379,43 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   position: relative;
   overflow-y: auto;
 }
-
 .norr3-modal-content::-webkit-scrollbar {
   width: 8px;
 }
-
 .norr3-modal-content::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 4px;
 }
-
 .norr3-modal-content::-webkit-scrollbar-thumb {
   background: #6a1b9a;
   border-radius: 4px;
 }
-
 .norr3-modal-content::-webkit-scrollbar-thumb:hover {
   background: #4a148c;
 }
 
+/* Two-Column Layout for Modals (Campaign Creation / Editing) */
 .norr3-two-columns {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 20px;
 }
-
-.norr3-modal-left, .norr3-modal-right {
+.norr3-modal-left,
+.norr3-modal-right {
   padding: 10px;
   overflow-y: auto;
 }
 
+/* Modal Actions */
 .norr3-modal-actions {
   display: flex;
   gap: 10px;
   margin-top: 20px;
 }
-
 .norr3-close-btn {
   position: absolute;
-  top: 10px; right: 15px;
+  top: 10px;
+  right: 15px;
   font-size: 24px;
   color: #1a2027;
   border: none;
@@ -446,13 +423,13 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   cursor: pointer;
   transition: color 0.3s ease;
 }
-
 .norr3-close-btn:hover,
 .norr3-close-btn:focus {
   color: #ba68c8;
   outline: 2px solid #ba68c8;
 }
 
+/* Apartment/User Table & Lists */
 .norr3-apartment-list,
 .norr3-user-table,
 .norr3-apartment-table {
@@ -460,7 +437,6 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   max-height: 400px;
   overflow-y: auto;
 }
-
 .norr3-apartment-row {
   display: grid;
   grid-template-columns: 1fr 1fr 5fr 1fr 1fr;
@@ -470,11 +446,10 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   background: #fff;
   align-items: center;
 }
-
 .norr3-apartment-item,
 .norr3-user-item {
   display: grid;
-  grid-template-columns: repeat(6,1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 10px;
   padding: 10px;
   border-bottom: 1px solid #e0e0e0;
@@ -482,6 +457,7 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   align-items: center;
 }
 
+/* Budget Input */
 .norr3-budget-input {
   width: 150px;
   height: 40px;
@@ -492,13 +468,11 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   transition: opacity 0.3s ease;
   vertical-align: middle;
 }
-
 .norr3-budget-input:disabled {
   opacity: 0.5;
   background-color: #f5f5f5;
   cursor: not-allowed;
 }
-
 .norr3-budget-input:not(:disabled):focus {
   border-color: #ba68c8;
   outline: none;
@@ -506,12 +480,12 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   opacity: 1;
 }
 
+/* Apartment/Campaign Info */
 .norr3-apartment-info,
 .norr3-campaign-info {
   padding: 20px;
   overflow-y: auto;
 }
-
 .norr3-apartment-info img,
 .norr3-campaign-info img {
   max-width: 100%;
@@ -519,18 +493,22 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   margin: 10px 0;
 }
 
+/* User Grid */
 .norr3-user-grid {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(250px,1fr));
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   margin: 20px 0;
   overflow-y: auto;
 }
 
+/* Loading Screen */
 .norr3-loading-screen {
   position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   background: rgba(0,0,0,0.5);
   z-index: 2000;
   display: flex;
@@ -539,12 +517,12 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   color: #fff;
   font-size: 20px;
 }
-
 .norr3-loading-screen i {
   font-size: 30px;
   margin-right: 10px;
 }
 
+/* Image Slider */
 .norr3-image-slider {
   display: flex;
   overflow-x: auto;
@@ -552,120 +530,147 @@ input[type="checkbox"]:checked + .norr3-slider:before {
   margin: 10px 0;
   overflow-y: auto;
 }
-
 .norr3-image-slider::-webkit-scrollbar {
   height: 8px;
 }
-
 .norr3-image-slider::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 4px;
 }
-
 .norr3-image-slider::-webkit-scrollbar-thumb {
   background: #6a1b9a;
   border-radius: 4px;
 }
-
 .norr3-image-slider::-webkit-scrollbar-thumb:hover {
   background: #4a148c;
 }
 
-.norr3-image-slider img {
-  max-width: 200px;
+/* Additional adjustments for campaign details on the right column */
+.norr3-campaign-dates {
+  display: flex;
+  gap: 10px;
+}
+.norr3-campaign-dates input[type="date"] {
+  width: 50%;
+}
+
+/* Agent Section for Admin Campaign Creation */
+.norr3-admin-create-section {
+  margin-bottom: 20px;
+}
+.norr3-admin-create-section h4 {
+  margin-bottom: 10px;
+}
+.norr3-admin-create-section input[type="email"] {
+  width: calc(100% - 120px);
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 10px;
+}
+.norr3-admin-create-section .norr3-btn-primary {
+  width: 100px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Adjust apartment thumbnail size */
+.norr3-apartment-row img,
+.norr3-apartment-item img {
+  width: 50px;
   height: auto;
-  border-radius: 4px;
 }
 
-.norr3-notification.new::after {
-  content: '';
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  background: red;
-  border-radius: 50%;
-  top: -2px;
-  right: -2px;
-}
+/* --- New Styles --- */
 
-.norr3-profile {
-  position: relative;
-  cursor: pointer;
-}
-
-.norr3-profile-img {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  transition: transform 0.3s ease;
-}
-
-.norr3-profile-img:hover {
-  transform: scale(1.1);
-}
-
-.norr3-profile-dropdown {
-  position: absolute;
-  top: 50px;
-  right: 0;
-  background: #fff;
+/* Campaign Creation - Apartment Table (inside the create modal) */
+#norr3-apartments-table {
+  max-height: 300px;
+  overflow-y: auto;
   border: 1px solid #e0e0e0;
-  border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  min-width: 150px;
-  z-index: 1001;
-  display: none;
-  flex-direction: column;
   padding: 10px;
+  margin-top: 10px;
 }
 
-.norr3-profile-dropdown p {
-  margin: 5px 0;
+/* User Management Add Account Modal */
+#norr3-add-user-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  z-index: 1100;
+  justify-content: center;
+  align-items: center;
+}
+#norr3-add-user-modal .norr3-modal-content {
+  width: 400px;
+  padding: 20px;
+  border-radius: 8px;
+  background: #fff;
+  position: relative;
+}
+#norr3-add-user-modal .norr3-add-user-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#norr3-add-user-modal .norr3-add-user-form label {
+  display: flex;
+  flex-direction: column;
   font-size: 14px;
   color: #1a2027;
 }
-
-.norr3-profile-dropdown button {
-  width: 100%;
-  margin: 5px 0;
-  padding: 8px 12px;
-  background: none;
-  border: none;
-  color: #6a1b9a;
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.3s ease, color 0.3s ease;
-}
-
-.norr3-profile-dropdown button:hover,
-.norr3-profile-dropdown button:focus {
-  background: #f5f7fa;
-  color: #4a148c;
-  outline: 2px solid #ba68c8;
-}
-
-.norr3-agent-suggestions {
-  position: absolute;
-  background: #fff;
+#norr3-add-user-modal .norr3-add-user-form input[type="email"],
+#norr3-add-user-modal .norr3-add-user-form input[type="password"],
+#norr3-add-user-modal .norr3-add-user-form input[type="text"],
+#norr3-add-user-modal .norr3-add-user-form input[type="url"],
+#norr3-add-user-modal .norr3-add-user-form select {
+  padding: 8px;
   border: 1px solid #e0e0e0;
   border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  max-height: 200px;
-  overflow-y: auto;
-  z-index: 1001;
-  width: 100%;
 }
-
-.norr3-agent-suggestions div {
-  padding: 8px 12px;
+#norr3-add-user-modal .norr3-auto-fill-btn {
+  margin-top: 5px;
+  align-self: flex-start;
+  padding: 6px 12px;
+  font-size: 12px;
+  background: #4a148c;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
   cursor: pointer;
-  color: #1a2027;
-  transition: background 0.3s ease;
 }
-
-.norr3-agent-suggestions div:hover,
-.norr3-agent-suggestions div:focus {
-  background: #f5f7fa;
-  outline: 2px solid #ba68c8;
+#norr3-add-user-modal .norr3-password-toggle {
+  cursor: pointer;
+  align-self: flex-end;
+}
+#norr3-add-user-modal .norr3-add-user-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+#norr3-add-user-modal .norr3-add-user-actions button {
+  width: 48%;
+  padding: 10px;
+  font-size: 14px;
+}
+.norr3-add-user-email-container {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.norr3-add-user-email-container input[type="email"] {
+  flex: 3;
+}
+.norr3-add-user-email-container button {
+  flex: 1;
+  padding: 8px;
+  font-size: 14px;
+  background: #4a148c;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
 }

@@ -1,20 +1,24 @@
 const express = require('express');
 const axios = require('axios');
-const { createClient } = require('@supabase/supabase-js');
+const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 
+// Initialize Supabase client
+const { createClient } = require('@supabase/supabase-js');
+const supabase = createClient(
+  process.env.SUPABASE_URL || "https://wuehzmkhvduybcjwkfaq.supabase.co",
+  process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1ZWh6bWtodmR1eWJjandrZmFxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1NzYzMDgsImV4cCI6MjA1NjE1MjMwOH0.Xr0kSW_WyZwIIqcqtTFOj_9RuWcxBku7hONDGm1QEd8"
+);
+
 const app = express();
-app.use(cors()); // Allow all origins for speed (no security)
+app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
-// Hardcode environment variables (replace with Supabase credentials later)
-const SUPABASE_URL = 'https://wuehzmkhvduybcjwkfaq.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1ZWh6bWtodmR1eWJjandrZmFxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1NzYzMDgsImV4cCI6MjA1NjE1MjMwOH0.Xr0kSW_WyZwIIqcqtTFOj_9RuWcxBku7hONDGm1QEd8';
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
+// Environment variables
+const JWT_SECRET = 'fda64fada1aa314e2167197ae36b9e2bfb12229ab8b6a604995d5b77a21df609';
 const GOOGLE_SHEET_ID = '1ncxlcx8f8BfhHeT9ph1sb0HqencDOnkwCMeoYg9e3tk';
 const GOOGLE_CLIENT_ID = '510608755501-ucl194dpbraertmqp8188bb7muh1b5oh.apps.googleusercontent.com';
 const GOOGLE_CLIENT_SECRET = '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';
@@ -22,8 +26,10 @@ const GOOGLE_REFRESH_TOKEN = '1//04hKsI6kHczRqCgYIARAAGAQSNwF-L9IrDHN4iJWBcImylm
 const JSON_FEED_URL = 'https://vilpas.kiinteistomaailma.fi/export/km/listings/baseline.json';
 const GOOGLE_REDIRECT_URI = 'https://kiinteistomaailma.norr3.fi/auth/google-callback';
 
-let apartmentsCache = [];
-
+/*
+  Function: refreshGoogleToken
+  - Uses the refresh token to request a new access token from Google.
+*/
 async function refreshGoogleToken() {
   const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
     client_id: GOOGLE_CLIENT_ID,
@@ -34,6 +40,11 @@ async function refreshGoogleToken() {
   return tokenResponse.data.access_token;
 }
 
+/*
+  Function: syncToSheets
+  - Given an array with one campaign object, calculates per‑day budget,
+    formats the campaign data as rows, and appends them to a Google Sheet.
+*/
 async function syncToSheets(campaignsArray) {
   const accessToken = await refreshGoogleToken();
   const campaign = campaignsArray[0];
@@ -75,60 +86,76 @@ async function syncToSheets(campaignsArray) {
   );
 }
 
-async function fetchApartmentsFromJson() {
-  if (!apartmentsCache.length) {
-    const response = await axios.get(JSON_FEED_URL, {
-      headers: { 'Cache-Control': 'no-cache' }
-    });
-    apartmentsCache = response.data;
+/*
+  Agent info endpoint
+  - Searches the external JSON feed for an apartment whose agent email matches the provided email.
+  - Returns the first matching agent info.
+*/
+app.get('/api/agent-info', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  const email = req.query.email;
+  if (!email) return res.status(400).json({ error: 'Email is required' });
+  try {
+    const response = await axios.get(JSON_FEED_URL, { headers: { 'Cache-Control': 'no-cache' } });
+    const apartments = response.data;
+    let agentInfo = null;
+    for (const apt of apartments) {
+      if (apt.agent && apt.agent.email && apt.agent.email.toLowerCase().trim() === email.toLowerCase().trim()) {
+        agentInfo = apt.agent;
+        break;
+      }
+    }
+    if (!agentInfo) return res.status(404).json({ error: 'Agent not found' });
+    res.json(agentInfo);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  return apartmentsCache.map(apt => ({
-    key: apt.key,
-    agencyEmail: apt.agencyEmail,
-    address: apt.address || 'Unknown Address',
-    postcode: apt.postcode || 'Unknown',
-    city: apt.city || 'Unknown',
-    images: apt.images || [],
-    agent: apt.agent || {}
-  }));
-}
+});
 
+/*
+  Apartments endpoint
+  - Retrieves the JSON feed and maps apartment fields.
+*/
 app.get('/api/apartments', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
   
   try {
-    const apartments = await fetchApartmentsFromJson();
-    res.json(apartments);
+    const response = await axios.get(JSON_FEED_URL, { headers: { 'Cache-Control': 'no-cache' } });
+    const mapped = response.data.map(apt => ({
+      key: apt.key,
+      agencyEmail: apt.agencyEmail,
+      address: apt.address || 'Unknown Address',
+      postcode: apt.postcode || 'Unknown',
+      city: apt.city || 'Unknown',
+      images: apt.images || [],
+      agentEmail: apt.agent && apt.agent.email ? apt.agent.email.toLowerCase().trim() : ""
+    }));
+    res.json(mapped);
   } catch (err) {
     console.error('Error in /api/apartments:', err);
     res.status(500).json({ error: 'Failed to fetch apartments: ' + err.message });
   }
 });
 
+/*
+  Campaign endpoints using Supabase for persistence.
+  Partners can only view their own campaigns.
+*/
 app.get('/api/campaigns', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-
-  const session = await supabase.auth.getSession();
-  if (!session.data.session) return res.status(401).json({ error: 'No session provided' });
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'No token provided' });
   try {
-    let campaignsData;
-    if (session.data.session.user.role === 'admin') {
-      const { data, error } = await supabase.from('campaigns').select('*');
-      if (error) throw new Error(error.message);
-      campaignsData = data;
-    } else {
-      const { data, error } = await supabase
-        .from('campaigns')
-        .select('*')
-        .eq('agent_key', session.data.session.user.user_metadata.agentKey);
-      if (error) throw new Error(error.message);
-      campaignsData = data;
+    const decoded = jwt.verify(token, JWT_SECRET);
+    let query = supabase.from('campaigns').select('*');
+    if (decoded.role === 'partner') {
+      query = query.eq('agent_key', decoded.agentKey);
     }
-    res.json(campaignsData);
+    const { data, error } = await query;
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
   } catch (error) {
     console.error('Error in GET /api/campaigns:', error);
     res.status(500).json({ error: 'Failed to fetch campaigns: ' + error.message });
@@ -136,17 +163,17 @@ app.get('/api/campaigns', async (req, res) => {
 });
 
 app.get('/api/campaigns/:id', async (req, res) => {
-  const session = await supabase.auth.getSession();
-  if (!session.data.session) return res.status(401).json({ error: 'No session provided' });
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'No token provided' });
   try {
+    const decoded = jwt.verify(token, JWT_SECRET);
     const { data, error } = await supabase
       .from('campaigns')
       .select('*')
       .eq('id', req.params.id)
       .single();
-    if (error) throw new Error(error.message);
-    if (!data) return res.status(404).json({ error: 'Campaign not found' });
-    if (session.data.session.user.role === 'partner' && data.agent_key.toLowerCase() !== session.data.session.user.user_metadata.agentKey.toLowerCase()) {
+    if (error) return res.status(404).json({ error: 'Campaign not found' });
+    if (decoded.role === 'partner' && data.agent_key.toLowerCase() !== decoded.agentKey.toLowerCase()) {
       return res.status(403).json({ error: 'Unauthorized access' });
     }
     res.json(data);
@@ -156,20 +183,21 @@ app.get('/api/campaigns/:id', async (req, res) => {
 });
 
 app.post('/api/campaigns', async (req, res) => {
-  const session = await supabase.auth.getSession();
-  if (!session.data.session) return res.status(401).json({ error: 'No session provided' });
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'No token provided' });
   try {
+    const decoded = jwt.verify(token, JWT_SECRET);
     const randomId = String(Math.floor(1000 + Math.random() * 9000));
-    const newCampaign = {
-      ...req.body,
-      id: randomId,
-      agent_name: session.data.session.user.user_metadata.agentName || 'Unknown Agent',
-      agent_key: session.data.session.user.user_metadata.agentKey || 'Unknown',
-      status: true // Default to active
-    };
-    const { data, error } = await supabase.from('campaigns').insert([newCampaign]).select().single();
-    if (error) throw new Error(error.message);
-    await syncToSheets([newCampaign]); // Sync to Google Sheets
+    // For partners, agent info comes from token; admins can provide agent info in the request body.
+    let newCampaign = { ...req.body, id: randomId };
+    if (decoded.role === 'partner') {
+      newCampaign.agent_name = decoded.agentName || 'Unknown Agent';
+      newCampaign.agent_key = decoded.agentKey || 'Unknown';
+    }
+    const { data, error } = await supabase.from('campaigns').insert(newCampaign).single();
+    if (error) return res.status(500).json({ error: error.message });
+    await syncToSheets([data]);
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: 'Failed to create campaign: ' + error.message });
@@ -177,21 +205,17 @@ app.post('/api/campaigns', async (req, res) => {
 });
 
 app.put('/api/campaigns', async (req, res) => {
-  const session = await supabase.auth.getSession();
-  if (!session.data.session) return res.status(401).json({ error: 'No session provided' });
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'No token provided' });
   try {
+    const decoded = jwt.verify(token, JWT_SECRET);
     const { data, error } = await supabase
       .from('campaigns')
       .update(req.body)
       .eq('id', req.body.id)
-      .select()
       .single();
-    if (error) throw new Error(error.message);
-    if (!data) return res.status(404).json({ error: 'Campaign not found' });
-    if (session.data.session.user.role === 'partner' && data.agent_key.toLowerCase() !== session.data.session.user.user_metadata.agentKey.toLowerCase()) {
-      return res.status(403).json({ error: 'Unauthorized access' });
-    }
-    await syncToSheets([data]); // Sync to Google Sheets
+    if (error) return res.status(404).json({ error: 'Campaign not found or update failed' });
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: 'Failed to update campaign: ' + error.message });
@@ -199,161 +223,183 @@ app.put('/api/campaigns', async (req, res) => {
 });
 
 app.patch('/api/campaigns/status/:id', async (req, res) => {
-  const session = await supabase.auth.getSession();
-  if (!session.data.session) return res.status(401).json({ error: 'No session provided' });
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'No token provided' });
   try {
-    const { data, error } = await supabase
+    const decoded = jwt.verify(token, JWT_SECRET);
+    // Fetch campaign first to ensure partner owns it
+    const { data: campaign, error: fetchError } = await supabase
       .from('campaigns')
-      .update({ status: req.body.status ? 1 : 0 })
+      .select('*')
       .eq('id', req.params.id)
-      .select()
       .single();
-    if (error) throw new Error(error.message);
-    if (!data) return res.status(404).json({ error: 'Campaign not found' });
-    if (session.data.session.user.role === 'partner' && data.agent_key.toLowerCase() !== session.data.session.user.user_metadata.agentKey.toLowerCase()) {
+    if (fetchError || !campaign) return res.status(404).json({ error: 'Campaign not found' });
+    if (decoded.role === 'partner' && campaign.agent_key.toLowerCase() !== decoded.agentKey.toLowerCase()) {
       return res.status(403).json({ error: 'Unauthorized access' });
     }
-    await syncToSheets([data]); // Sync to Google Sheets
+    const { data, error } = await supabase
+      .from('campaigns')
+      .update({ status: req.body.status })
+      .eq('id', req.params.id)
+      .single();
+    if (error) return res.status(500).json({ error: error.message });
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: 'Failed to update campaign status: ' + error.message });
   }
 });
 
-app.get('/api/apartments/by-agent/:agentKey', async (req, res) => {
+app.post('/api/sheets/update', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-  
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'No token provided' });
   try {
-    const apartments = await fetchApartmentsFromJson();
-    const filteredApartments = apartments.filter(apt => 
-      apt.agent && apt.agent.key.toLowerCase() === req.params.agentKey.toLowerCase()
-    );
-    res.json(filteredApartments);
-  } catch (err) {
-    console.error('Error in /api/apartments/by-agent:', err);
-    res.status(500).json({ error: 'Failed to fetch apartments: ' + err.message });
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { data: campaign, error } = await supabase
+      .from('campaigns')
+      .select('*')
+      .eq('id', req.body.campaignId)
+      .single();
+    if (error || !campaign) return res.status(404).json({ error: 'Campaign not found' });
+    await syncToSheets([campaign]);
+    res.json({ message: 'Campaign synced to Google Sheets' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to sync to Google Sheets: ' + error.message });
   }
 });
 
-app.get('/api/agents/autofill', async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-  
-  const email = req.query.email;
-  if (!email) return res.status(400).json({ error: 'Email is required' });
-  
-  try {
-    const apartments = await fetchApartmentsFromJson();
-    const apartment = apartments.find(apt => 
-      apt.agent && apt.agent.email.toLowerCase() === email.toLowerCase()
-    );
-    if (!apartment || !apartment.agent) {
-      return res.status(404).json({ error: 'Agent not found in apartment listings' });
-    }
-    const agent = apartment.agent;
-    res.json({
-      email: agent.email,
-      agentName: agent.name,
-      agentKey: agent.key,
-      phone: agent.phone,
-      agency: agent.agency,
-      pictureUrl: agent.pictureUrl,
-      degrees: agent.degrees,
-      title: agent.title
-    });
-  } catch (err) {
-    console.error('Error in /api/agents/autofill:', err);
-    res.status(500).json({ error: 'Failed to fetch agent info: ' + err.message });
-  }
-});
-
+// Updated login endpoint using Supabase for user data
 app.post('/api/auth/login', async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-
   const { email, password } = req.body;
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) {
+  const { data: users, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('email', email)
+    .single();
+
+  if (error || !users) {
     return res.status(401).json({ error: 'Wrong email or password, please try again.' });
   }
-  res.json({
-    session: data.session,
-    role: data.user.user_metadata.role || 'partner',
-    partnerName: data.user.user_metadata.partnerName || 'Kiinteistömaailma Helsinki',
-    email: data.user.email,
-    agentName: data.user.user_metadata.agentName || '',
-    agentKey: data.user.user_metadata.agentKey || ''
+
+  if (!bcrypt.compareSync(password, users.password)) {
+    return res.status(401).json({ error: 'Wrong email or password, please try again.' });
+  }
+
+  const token = jwt.sign(
+    { 
+      email: users.email, 
+      role: users.role, 
+      partnerName: users.partner_name, 
+      agentName: users.agent_name, 
+      agentKey: users.agent_key 
+    },
+    JWT_SECRET,
+    { expiresIn: '1h' }
+  );
+
+  res.json({ 
+    token, 
+    role: users.role, 
+    partnerName: users.partner_name, 
+    email: users.email,
+    agentName: users.agent_name,
+    agentKey: users.agent_key
   });
 });
 
+// New endpoint for Supabase-based agent autofill
+app.post('/api/users/autofill', async (req, res) => {
+  const { email } = req.body;
+  try {
+    const response = await axios.get(JSON_FEED_URL, {
+      headers: { 'Cache-Control': 'no-cache' }
+    });
+    const listings = response.data;
+    // Search for an agent with matching email
+    const agentInfo = listings.find(apt => 
+      apt.agent && apt.agent.email && apt.agent.email.toLowerCase().trim() === email.toLowerCase().trim()
+    );
+    if (!agentInfo) {
+      return res.status(404).json({ error: 'Agent not found in JSON feed.' });
+    }
+    const { name, key, pictureUrl } = agentInfo.agent;
+    res.json({ email, agentName: name, agentKey: key, agentImage: pictureUrl });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch agent info: ' + error.message });
+  }
+});
+
+// Google login endpoints – these are kept similar but may be updated later to use Supabase Auth
 app.get('/auth/google-login', (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-  res.redirect(supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: GOOGLE_REDIRECT_URI
-    }
-  }).url);
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${GOOGLE_REDIRECT_URI}&response_type=code&scope=email profile`);
 });
 
 app.get('/auth/google-callback', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-
   const code = req.query.code;
   try {
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) throw new Error(error.message);
-    const session = data.session;
-    let user = await supabase
+    const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
+      code,
+      client_id: GOOGLE_CLIENT_ID,
+      client_secret: GOOGLE_CLIENT_SECRET,
+      redirect_uri: GOOGLE_REDIRECT_URI,
+      grant_type: 'authorization_code'
+    });
+    const { access_token } = tokenResponse.data;
+    const userResponse = await axios.get('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
+      headers: { Authorization: `Bearer ${access_token}` }
+    });
+    const user = userResponse.data;
+    // Check Supabase for the user; if not exists, insert a new user with default values.
+    let { data: existingUser } = await supabase
       .from('users')
       .select('*')
-      .eq('email', session.user.email)
+      .eq('email', user.email)
       .single();
-    if (!user.data) {
-      // Create new admin user for Google login
-      const { data: newUser, error: insertError } = await supabase.from('users').insert([{
-        email: session.user.email,
-        password: bcrypt.hashSync('defaultPassword123', 10), // Optional, can remove if not needed
-        role: 'admin',
-        partner_name: 'NØRR3',
-        agent_name: session.user.name || '',
-        agent_key: '', // Can be auto-filled later via autofill
-        agent_image: '' // Can be auto-filled from Google profile or JSON feed
-      }]).select().single();
-      if (insertError) throw new Error(insertError.message);
-      user.data = newUser;
+    if (!existingUser) {
+      const newUser = {
+        email: user.email,
+        password: bcrypt.hashSync('defaultPassword123', 10),
+        role: 'partner',
+        partnerName: 'Kiinteistömaailma Helsinki',
+        agentName: '',
+        agentKey: '1160ska', // default agentKey
+        agentImage: ''
+      };
+      const { data, error } = await supabase.from('users').insert(newUser).single();
+      if (error) throw new Error(error.message);
+      existingUser = data;
     }
-    res.redirect(`https://kiinteistomaailma.norr3.fi/?session=${encodeURIComponent(JSON.stringify(session))}&role=admin&partnerName=NØRR3`);
+    const token = jwt.sign(
+      { 
+        email: existingUser.email, 
+        role: existingUser.role, 
+        partnerName: existingUser.partnerName, 
+        agentName: existingUser.agentName, 
+        agentKey: existingUser.agentKey 
+      },
+      JWT_SECRET,
+      { expiresIn: '4h' }
+    );
+    res.redirect(`https://kiinteistomaailma.norr3.fi/?token=${token}&service=kiinteistomaailma`);
   } catch (error) {
     res.status(500).send('Google login failed: ' + error.message);
   }
 });
 
+// User management endpoints using Supabase
 app.post('/api/users', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-
-  const session = await supabase.auth.getSession();
-  if (!session.data.session || session.data.session.user.role !== 'admin') {
-    return res.status(401).json({ error: 'Admin access required' });
-  }
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'No token provided' });
   try {
-    const user = { 
-      ...req.body, 
-      password: req.body.password ? bcrypt.hashSync(req.body.password, 10) : null, 
-      role: req.body.role || 'partner' 
-    };
-    const { data, error } = await supabase.from('users').insert([user]).select().single();
-    if (error) throw new Error(error.message);
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.role !== 'admin') return res.status(401).json({ error: 'Admin access required' });
+    const newUser = { ...req.body, password: bcrypt.hashSync(req.body.password, 10), role: 'partner' };
+    const { data, error } = await supabase.from('users').insert(newUser).single();
+    if (error) return res.status(500).json({ error: error.message });
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: 'Failed to add user: ' + error.message });
@@ -362,16 +408,13 @@ app.post('/api/users', async (req, res) => {
 
 app.delete('/api/users/:email', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-
-  const session = await supabase.auth.getSession();
-  if (!session.data.session || session.data.session.user.role !== 'admin') {
-    return res.status(401).json({ error: 'Admin access required' });
-  }
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'No token provided' });
   try {
-    const { error } = await supabase.from('users').delete().eq('email', req.params.email);
-    if (error) throw new Error(error.message);
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.role !== 'admin') return res.status(401).json({ error: 'Admin access required' });
+    const { data, error } = await supabase.from('users').delete().eq('email', req.params.email);
+    if (error) return res.status(500).json({ error: error.message });
     res.json({ message: 'User removed successfully' });
   } catch (error) {
     res.status(500).json({ error: 'Failed to remove user: ' + error.message });
@@ -380,47 +423,20 @@ app.delete('/api/users/:email', async (req, res) => {
 
 app.put('/api/users/:email', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-
-  const session = await supabase.auth.getSession();
-  if (!session.data.session || session.data.session.user.role !== 'admin') {
-    return res.status(401).json({ error: 'Admin access required' });
-  }
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'No token provided' });
   try {
-    const user = { ...req.body };
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.role !== 'admin') return res.status(401).json({ error: 'Admin access required' });
+    let updateData = { ...req.body };
     if (req.body.password) {
-      user.password = bcrypt.hashSync(req.body.password, 10);
+      updateData.password = bcrypt.hashSync(req.body.password, 10);
     }
-    const { data, error } = await supabase
-      .from('users')
-      .update(user)
-      .eq('email', req.params.email)
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
-    if (!data) return res.status(404).json({ error: 'User not found' });
+    const { data, error } = await supabase.from('users').update(updateData).eq('email', req.params.email).single();
+    if (error) return res.status(404).json({ error: 'User not found or update failed' });
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: 'Failed to edit user: ' + error.message });
-  }
-});
-
-app.get('/api/users', async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-
-  const session = await supabase.auth.getSession();
-  if (!session.data.session || session.data.session.user.role !== 'admin') {
-    return res.status(401).json({ error: 'Admin access required' });
-  }
-  try {
-    const { data, error } = await supabase.from('users').select('*');
-    if (error) throw new Error(error.message);
-    res.json(data);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch users: ' + error.message });
   }
 });
 
@@ -429,4 +445,4 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-module.exports = app; // Export for Vercel
+module.exports = app;
