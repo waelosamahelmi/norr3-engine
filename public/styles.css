@@ -38,8 +38,8 @@
 
 /* Ensure no other styles override these */
 .norr3-profile-pic img {
-  width: 100% !important;
-  height: 100% !important;
+  width: 20px !important;
+  height: 20px !important;
   border-radius: 50% !important;
 }
 
