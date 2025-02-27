@@ -18,6 +18,7 @@
   justify-content: center;
 }
 /* Profile picture styles for light theme */
+/* Profile picture styles for light theme */
 .norr3-user-profile {
   display: inline-block;
   margin-right: 10px; /* Space between profile pic and logout button */
@@ -26,17 +27,24 @@
 }
 
 .norr3-profile-pic {
-  width: 30px; /* Small circular profile picture */
-  height: 30px;
-  border-radius: 50%; /* Circular shape */
-  object-fit: cover; /* Ensure the image fits nicely */
+  width: 30px !important; /* Force 30px width to override any other styles */
+  height: 30px !important; /* Force 30px height */
+  border-radius: 50% !important; /* Ensure circular shape */
+  object-fit: cover !important; /* Ensure the image fits nicely without stretching */
   border: 2px solid #e2e8f0; /* Light gray border for light theme */
   cursor: pointer; /* Hand cursor on hover */
   transition: border-color 0.3s ease; /* Smooth border transition */
 }
 
+/* Ensure no other styles override these */
+.norr3-profile-pic img {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+}
+
 .norr3-profile-pic:hover {
-  border-color: #3182ce; /* Blue border on hover for light theme accent */
+  border-color: #3182ce !important; /* Blue border on hover for light theme accent */
 }
 
 /* Tooltip for email on hover (custom tooltip for better control) */
@@ -69,6 +77,23 @@
   margin-left: 5px; /* Small space after profile pic */
 }
 
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .norr3-user-profile {
+    margin-right: 5px; /* Reduce space on mobile */
+  }
+  #norr3-logout-btn {
+    margin-left: 0; /* Remove margin on mobile */
+    display: block; /* Stack on mobile if needed */
+  }
+  .norr3-user-profile:hover::after {
+    position: fixed; /* Adjust tooltip on mobile */
+    left: auto;
+    top: auto;
+    bottom: 100%;
+    transform: none;
+  }
+}
 /* Logo */
 .norr3-logo-wrapper {
   padding: 20px;
