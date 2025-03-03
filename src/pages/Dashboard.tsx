@@ -162,22 +162,8 @@ const Dashboard = () => {
     setFetchingApartments(true);
     
     try {
-      const jsonFeedUrl = import.meta.env.VITE_JSON_FEED_URL;
-      
-      if (!jsonFeedUrl) {
-        console.error('JSON feed URL is not defined in environment variables');
-        setApartments([]);
-        return;
-      }
-      
       try {
-        const response = await fetch(jsonFeedUrl, {
-          headers: {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache',
-            'X-Requested-With': 'XMLHttpRequest'
-          }
-        });
+        const response = await fetch('/api/apartments');
         
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`);

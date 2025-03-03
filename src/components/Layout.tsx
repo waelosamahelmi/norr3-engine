@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { User } from '../types';
 import { 
@@ -31,7 +31,7 @@ const Layout = ({ user }: LayoutProps) => {
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
-      navigate('/login');
+      window.location.href = '/login';
     } catch (error) {
       toast.error('Error signing out');
     }

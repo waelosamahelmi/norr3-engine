@@ -71,7 +71,7 @@ const Login = () => {
         }
         
         toast.success('Login successful!');
-        navigate('/');
+        window.location.href = '/';
       }
     } catch (error: any) {
       toast.error(error.message || 'Error logging in');

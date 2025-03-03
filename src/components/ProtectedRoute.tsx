@@ -1,14 +1,26 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { User } from '../types';
+import { supabase } from '../lib/supabase';
+import { useEffect } from 'react';
 
 interface ProtectedRouteProps {
   user: User | null;
-  redirectPath?: string;
 }
 
-const ProtectedRoute = ({ user, redirectPath = '/login' }: ProtectedRouteProps) => {
+const ProtectedRoute = ({ user }: ProtectedRouteProps) => {
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        await supabase.auth.signOut();
+      }
+    };
+    
+    checkSession();
+  }, []);
+
   if (!user) {
-    return <Navigate to={redirectPath} replace />;
+    return <Navigate to="/login" replace />;
   }
 
   return <Outlet />;

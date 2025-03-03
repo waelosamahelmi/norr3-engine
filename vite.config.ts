@@ -7,4 +7,13 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  server: {
+    proxy: {
+      '/api/apartments': {
+        target: 'https://vilpas.kiinteistomaailma.fi',
+        changeOrigin: true,
+        rewrite: (path) => '/export/km/listings/baseline.json',
+      },
+    },
+  },
 });
